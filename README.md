@@ -111,3 +111,9 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest
 ```
 
 Full guidelines: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 CRSS Team
