@@ -3,8 +3,8 @@ from fastapi import FastAPI
 from app.api.v1.router import api_router
 
 app = FastAPI(
-    title="CRSS API",
-    description="Course Registration and Scheduling System",
+    title="CRSP API",
+    description="Course Registration and Scheduling Platform",
     version="0.1.0",
 )
 

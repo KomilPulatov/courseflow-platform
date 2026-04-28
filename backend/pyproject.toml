@@ -1,7 +1,7 @@
 [project]
-name = "crss-backend"
+name = "crsp-backend"
 version = "0.1.0"
-description = "CRSS - Course Registration and Scheduling System (FastAPI backend)"
+description = "CRSP - Course Registration and Scheduling Platform (FastAPI backend)"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.136",

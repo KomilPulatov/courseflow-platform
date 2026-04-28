@@ -1,6 +1,6 @@
-# Contributing to CRSS
+# Contributing to CRSP
 
-Welcome — this guide keeps our 5-person team's git history clean and our PRs reviewable. Read it once before your first push.
+Welcome to **team Celion** — this guide keeps our 5-person team's git history clean and our PRs reviewable. Read it once before your first push.
 
 ---
 
@@ -129,6 +129,6 @@ Anyone can submit PRs to any module; the owner is the default reviewer.
 
 ## When in doubt
 
-- Read the spec (`docs/CRSS_Technical_Specification.md`).
+- Read the spec (`docs/technical-specification.md`).
 - Ask in the team chat before doing something architecturally big.
 - Open a draft PR early to get feedback on direction.
