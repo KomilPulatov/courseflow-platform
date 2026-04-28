@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.env
+
+# PyCharm
+.idea/
+
+# Logs
+*.log
+
+# Node / frontend
+node_modules/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker / local data
+postgres_data/
+redis_data/
+
+# Alembic cache
+.mypy_cache/
+.pytest_cache/
+
+# Local DBs
+*.db
+*.sqlite
+*.sqlite3
+
+# Env variants
+.env.local
+.env.*.local
+
+# Editors / IDEs (mixed-team)
+.vscode/
+*.swp
+
+# Python tooling
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Build artifacts
+*.egg-info/
