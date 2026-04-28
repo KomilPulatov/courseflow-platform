@@ -8,3 +8,4 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 - Initial project baseline: monorepo skeleton, `uv`-managed backend, ruff + pre-commit + GitHub Actions CI, README, CONTRIBUTING, `.env.example`.
+- MIT license.
