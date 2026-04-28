@@ -1,0 +1,13 @@
+# Auto-detect text files and normalize line endings to LF on commit.
+# This keeps diffs sane across Windows / macOS / Linux teammates.
+* text=auto eol=lf
+
+# Binary files (no text conversion)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
