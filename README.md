@@ -1,10 +1,10 @@
-# CRSS — Course Registration and Scheduling System
+# CRSP — Course Registration and Scheduling Platform
 
 University course registration platform built as a **dockerized modular monolith** for the Database Application and Design course (Spring 2026).
 
 Students search and register for course sections with live seat updates, timetable conflict checks, waitlists, and audit logging. Administrators manage offerings, registration periods, and demand analytics. The central technical challenge is **safe concurrent registration** — the system must never overbook seats under load.
 
-See `docs/CRSS_Technical_Specification.md` for the full spec.
+Built by **team Celion**. See `docs/technical-specification.md` for the full spec.
 
 ---
 
@@ -34,8 +34,8 @@ See `docs/CRSS_Technical_Specification.md` for the full spec.
 ## First-time setup
 
 ```bash
-git clone <repo-url> crss
-cd crss
+git clone https://github.com/KomilPulatov/courseflow-platform.git
+cd courseflow-platform
 
 # 1. Copy env template
 cp .env.example .env
@@ -78,7 +78,7 @@ All run from `backend/` unless noted.
 ## Project structure
 
 ```
-crss/
+courseflow-platform/
 ├─ backend/               # FastAPI app
 │  ├─ pyproject.toml      # uv-managed deps + ruff/pytest config
 │  ├─ uv.lock             # locked dependency graph (commit this)
@@ -116,4 +116,4 @@ Full guidelines: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-[MIT](LICENSE) © 2026 CRSS Team
+[MIT](LICENSE) © 2026 Celion

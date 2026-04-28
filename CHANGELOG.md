@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to CRSS are documented here.
+All notable changes to CRSP are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -8,4 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 - Initial project baseline: monorepo skeleton, `uv`-managed backend, ruff + pre-commit + GitHub Actions CI, README, CONTRIBUTING, `.env.example`.
-- MIT license.
+- MIT license (© 2026 Celion).
+
+### Changed
+- Project acronym standardized to **CRSP** (Course Registration and Scheduling Platform). Team name is **Celion**.
