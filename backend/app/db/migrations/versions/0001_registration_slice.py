@@ -16,6 +16,30 @@ depends_on = None
 
 def upgrade() -> None:
     op.create_table(
+        "users",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("email", sa.String(length=255), nullable=True),
+        sa.Column("password_hash", sa.Text(), nullable=True),
+        sa.Column("role", sa.String(length=30), nullable=False),
+        sa.Column("status", sa.String(length=30), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.CheckConstraint("role IN ('admin', 'professor', 'student')", name="ck_user_role"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("email"),
+    )
+    op.create_table(
+        "professors",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("full_name", sa.String(length=255), nullable=False),
+        sa.Column("department_name", sa.String(length=255), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("user_id"),
+    )
+    op.create_table(
         "students",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=True),
@@ -28,6 +52,7 @@ def upgrade() -> None:
             "profile_source IN ('ins_verified', 'manual')",
             name="ck_student_source",
         ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("student_number"),
         sa.UniqueConstraint("user_id"),
@@ -61,6 +86,8 @@ def upgrade() -> None:
         sa.Column("student_id", sa.Integer(), nullable=False),
         sa.Column("department_id", sa.Integer(), nullable=True),
         sa.Column("major_id", sa.Integer(), nullable=True),
+        sa.Column("department_name", sa.String(length=255), nullable=True),
+        sa.Column("major_name", sa.String(length=255), nullable=True),
         sa.Column("academic_year", sa.Integer(), nullable=True),
         sa.Column("group_name", sa.String(length=80), nullable=True),
         sa.Column("current_gpa", sa.Numeric(precision=3, scale=2), nullable=True),
@@ -101,6 +128,19 @@ def upgrade() -> None:
             "course_code",
             name="uq_completed_student_course_code",
         ),
+    )
+    op.create_table(
+        "external_accounts",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("student_id", sa.Integer(), nullable=False),
+        sa.Column("provider", sa.String(length=40), nullable=False),
+        sa.Column("external_user_id", sa.String(length=120), nullable=True),
+        sa.Column("last_verified_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("metadata", sa.JSON(), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(["student_id"], ["students.id"]),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("provider", "external_user_id", name="uq_external_provider_user"),
     )
     op.create_table(
         "course_prerequisites",
@@ -291,8 +331,11 @@ def downgrade() -> None:
     op.drop_table("course_offerings")
     op.drop_table("course_eligibility_rules")
     op.drop_table("course_prerequisites")
+    op.drop_table("external_accounts")
     op.drop_table("student_completed_courses")
     op.drop_table("student_academic_profiles")
     op.drop_table("courses")
     op.drop_table("semesters")
     op.drop_table("students")
+    op.drop_table("professors")
+    op.drop_table("users")
