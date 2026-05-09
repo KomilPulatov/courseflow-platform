@@ -10,14 +10,21 @@ This is the most important reliability requirement.
 
 ## 2. Registration algorithm
 
+Implementation status: Komil's slice implements this flow in the FastAPI backend under
+`/api/v1/registrations`. Redis, WebSocket, RabbitMQ, and rate limiting remain adapter
+boundaries for the platform reliability slice; registration commits are not dependent
+on those services.
+
 ```python
 def register_student(student_id, section_id, idempotency_key):
     # 1. Check idempotency before doing expensive work.
+    # MVP implementation uses PostgreSQL-backed idempotency records.
     cached = idempotency_store.get(student_id, idempotency_key)
     if cached:
         return cached.response
 
     # 2. Rate limit.
+    # Platform slice will plug the Redis token bucket into this boundary.
     rate_limiter.consume_or_raise(student_id, "registration")
 
     with db.transaction() as tx:
@@ -72,14 +79,16 @@ def register_student(student_id, section_id, idempotency_key):
         idempotency_store.save_after_commit(student_id, idempotency_key, response)
 
     # 13. Non-critical effects after commit.
-    cache.invalidate_section_availability(section_id)
-    events.publish("RegistrationDecisionMade", response)
-    websockets.broadcast_section_update(section_id)
+    availability_publisher.publish_section_changed(section_id)
+    event_publisher.publish_registration_event(response)
 
     return response
 ```
 
 ## 3. Database protections
+
+The first backend migration adds the registration slice foundation and the defensive
+constraints below. Tests create the same schema from SQLAlchemy metadata.
 
 ### 3.1 Row lock
 
@@ -164,17 +173,18 @@ Alternative: lock section row and calculate position safely inside the same tran
 
 ## 7. Drop and promotion consistency
 
+Current slice implementation supports safe student drop by locking the enrollment row
+and marking it `dropped`. Automatic waitlist promotion remains a worker/platform
+integration task so it does not conflict with the reliability slice.
+
 When a student drops:
 
 1. Begin transaction.
 2. Lock enrollment row.
-3. Lock section row.
-4. Mark enrollment as dropped.
-5. Find first waiting waitlist entry.
-6. Re-check eligibility.
-7. Promote first eligible student or keep seat free.
-8. Commit.
-9. Broadcast update.
+3. Mark enrollment as dropped.
+4. Write audit log and registration event.
+5. Commit.
+6. Publish section-change and registration-event adapter calls.
 
 ## 8. Concurrency test
 
@@ -196,6 +206,11 @@ FROM enrollments
 WHERE section_id = 101 AND status = 'enrolled';
 -- must return 1
 ```
+
+The automated test suite currently covers the capacity invariant, idempotency,
+waitlisting, duplicate prevention, drop behavior, and eligibility rule decisions.
+A true multi-connection PostgreSQL load test should be run once Docker Compose and
+PostgreSQL are wired into the integration environment.
 
 ## 9. Failure handling
 
