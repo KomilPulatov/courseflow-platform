@@ -21,11 +21,37 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str | None] = mapped_column(String(255), unique=True)
+    password_hash: Mapped[str | None] = mapped_column(Text)
+    role: Mapped[str] = mapped_column(String(30), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("role IN ('admin', 'professor', 'student')", name="ck_user_role"),
+    )
+
+
+class Professor(Base):
+    __tablename__ = "professors"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, nullable=False)
+    full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    department_name: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class Student(Base):
     __tablename__ = "students"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int | None] = mapped_column(unique=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), unique=True)
     student_number: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     profile_source: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -54,6 +80,8 @@ class StudentAcademicProfile(Base):
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id"), unique=True, nullable=False)
     department_id: Mapped[int | None] = mapped_column(Integer)
     major_id: Mapped[int | None] = mapped_column(Integer)
+    department_name: Mapped[str | None] = mapped_column(String(255))
+    major_name: Mapped[str | None] = mapped_column(String(255))
     academic_year: Mapped[int | None] = mapped_column(Integer)
     group_name: Mapped[str | None] = mapped_column(String(80))
     current_gpa: Mapped[float | None] = mapped_column(Numeric(3, 2))
@@ -92,6 +120,22 @@ class StudentCompletedCourse(Base):
     __table_args__ = (
         UniqueConstraint("student_id", "course_code", name="uq_completed_student_course_code"),
         CheckConstraint("source IN ('ins_verified', 'manual')", name="ck_completed_source"),
+    )
+
+
+class ExternalAccount(Base):
+    __tablename__ = "external_accounts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id"), nullable=False)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    external_user_id: Mapped[str | None] = mapped_column(String(120))
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    metadata_json: Mapped[dict | None] = mapped_column("metadata", JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("provider", "external_user_id", name="uq_external_provider_user"),
     )
 
 
