@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr
 
-
 # --- Request schemas ---
+
 
 class AdminLoginRequest(BaseModel):
     email: EmailStr
@@ -26,6 +26,7 @@ class ManualStartRequest(BaseModel):
 
 
 # --- Response schemas ---
+
 
 class TokenResponse(BaseModel):
     access_token: str

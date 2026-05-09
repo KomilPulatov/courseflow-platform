@@ -2,7 +2,7 @@
 Auth service — login business logic for all three roles.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -22,10 +22,8 @@ from app.modules.students.models import (
     StudentCompletedCourse,
 )
 
-
-# ---------------------------------------------------------------------------
 # Admin login
-# ---------------------------------------------------------------------------
+
 
 def login_admin(db: Session, email: str, password: str) -> TokenResponse:
     user = db.query(User).filter(User.email == email, User.role == "admin").first()
@@ -37,7 +35,7 @@ def login_admin(db: Session, email: str, password: str) -> TokenResponse:
 
 # ---------------------------------------------------------------------------
 # Professor login
-# ---------------------------------------------------------------------------
+
 
 def login_professor(db: Session, email: str, password: str) -> TokenResponse:
     user = db.query(User).filter(User.email == email, User.role == "professor").first()
@@ -47,9 +45,8 @@ def login_professor(db: Session, email: str, password: str) -> TokenResponse:
     return TokenResponse(access_token=token, role="professor")
 
 
-# ---------------------------------------------------------------------------
 # Student — INS login
-# ---------------------------------------------------------------------------
+
 
 def login_student_ins(db: Session, student_number: str, password: str) -> INSLoginResponse:
     # 1. Verify against INS
@@ -87,7 +84,7 @@ def login_student_ins(db: Session, student_number: str, password: str) -> INSLog
         .filter(StudentAcademicProfile.student_id == student.id)
         .first()
     )
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if profile is None:
         profile = StudentAcademicProfile(
             student_id=student.id,
@@ -162,9 +159,8 @@ def login_student_ins(db: Session, student_number: str, password: str) -> INSLog
     )
 
 
-# ---------------------------------------------------------------------------
 # Student — Manual start
-# ---------------------------------------------------------------------------
+
 
 def register_student_manual(
     db: Session, student_number: str, full_name: str, email: str, password: str

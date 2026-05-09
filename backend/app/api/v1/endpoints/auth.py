@@ -8,19 +8,19 @@ router = APIRouter()
 
 
 @router.post("/admin/login", response_model=schemas.TokenResponse)
-def admin_login(body: schemas.AdminLoginRequest, db: Session = Depends(get_db)):
+def admin_login(body: schemas.AdminLoginRequest, db: Session = Depends(get_db)):  # noqa: B008
     """Admin login with email + password."""
     return service.login_admin(db, body.email, body.password)
 
 
 @router.post("/professor/login", response_model=schemas.TokenResponse)
-def professor_login(body: schemas.ProfessorLoginRequest, db: Session = Depends(get_db)):
+def professor_login(body: schemas.ProfessorLoginRequest, db: Session = Depends(get_db)):  # noqa: B008
     """Professor login with email + password."""
     return service.login_professor(db, body.email, body.password)
 
 
 @router.post("/student/ins-login", response_model=schemas.INSLoginResponse)
-def student_ins_login(body: schemas.INSLoginRequest, db: Session = Depends(get_db)):
+def student_ins_login(body: schemas.INSLoginRequest, db: Session = Depends(get_db)):  # noqa: B008
     """
     Student login via IUT INS.
     Syncs academic data (GPA, courses) from INS — gpa_is_verified=True.
@@ -30,7 +30,7 @@ def student_ins_login(body: schemas.INSLoginRequest, db: Session = Depends(get_d
 
 
 @router.post("/student/manual-start", response_model=schemas.ManualStartResponse)
-def student_manual_start(body: schemas.ManualStartRequest, db: Session = Depends(get_db)):
+def student_manual_start(body: schemas.ManualStartRequest, db: Session = Depends(get_db)):  # noqa: B008
     """
     Create a manual student account.
     GPA will never be trusted (gpa_is_verified=False).
