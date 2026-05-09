@@ -288,6 +288,9 @@ Query parameters:
 
 Returns eligibility for current student.
 
+Current implementation note: until the auth slice lands, student identity is provided by
+the temporary `X-Student-Id` request header.
+
 Response:
 
 ```json
@@ -305,7 +308,7 @@ Response:
     {
       "rule": "gpa",
       "status": "skipped",
-      "message": "GPA is skipped for manual-profile students."
+      "message": "GPA is skipped because the student profile is manual and not INS-verified."
     },
     {
       "rule": "capacity",
@@ -319,6 +322,12 @@ Response:
 ## 8. Registration
 
 ### POST `/registrations`
+
+Current implementation note: until JWT auth is implemented, pass the current student as:
+
+```text
+X-Student-Id: 1
+```
 
 Request:
 
@@ -362,6 +371,16 @@ Failure response:
 ### DELETE `/registrations/{enrollment_id}`
 
 Drops course.
+
+Response:
+
+```json
+{
+  "status": "dropped",
+  "enrollment_id": 9001,
+  "section_id": 101
+}
+```
 
 ### GET `/registrations/me`
 
