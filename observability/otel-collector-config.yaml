@@ -1,0 +1,58 @@
+# OpenTelemetry Collector configuration for CRSP.
+# Receives OTLP/gRPC + HTTP from FastAPI replicas and the worker, and fans out
+# to Prometheus (metrics), Tempo (traces), and Loki (logs). Backends marked
+# "optional" are wired only when their service is present in docker-compose.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  resource:
+    attributes:
+      - key: deployment.environment
+        from_attribute: deployment.environment
+        action: upsert
+
+exporters:
+  debug:
+    verbosity: basic
+  prometheus:
+    endpoint: 0.0.0.0:8889
+  # Optional: enable when Tempo is part of the compose stack.
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  # Optional: enable when Loki is part of the compose stack.
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [debug, otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [debug, prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [debug, otlphttp/loki]
+  telemetry:
+    logs:
+      level: info
