@@ -17,6 +17,13 @@ class Settings(BaseSettings):
     # INS Integration
     INS_MOCK_ENABLED: bool = True  # Use mock data; set False for real scraper
 
+    # Observability
+    LOG_LEVEL: str = "INFO"
+    OTEL_SERVICE_NAME: str = "crsp-backend"
+    OTEL_SERVICE_VERSION: str = "0.1.0"
+    OTEL_EXPORTER_OTLP_ENDPOINT: str = ""  # empty disables OTel export
+    OTEL_EXPORTER_OTLP_INSECURE: bool = True
+
     @property
     def POSTGRES_DATABASE_URL(self) -> str:
         return (
