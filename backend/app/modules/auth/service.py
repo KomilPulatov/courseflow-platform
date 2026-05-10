@@ -8,19 +8,14 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, hash_password, verify_password
-from app.integrations.ins_client import verify_ins_credentials
 from app.modules.auth.models import User
 from app.modules.auth.schemas import (
     INSLoginResponse,
     ManualStartResponse,
     TokenResponse,
 )
-from app.modules.students.models import (
-    ExternalAccount,
-    Student,
-    StudentAcademicProfile,
-    StudentCompletedCourse,
-)
+from app.modules.students.models import ExternalAccount, Student, StudentAcademicProfile
+from app.modules.sync.simple_scraper import run_sync_simple
 
 # Admin login
 
@@ -49,81 +44,46 @@ def login_professor(db: Session, email: str, password: str) -> TokenResponse:
 
 
 def login_student_ins(db: Session, student_number: str, password: str) -> INSLoginResponse:
-    # 1. Verify against INS
-    ins_data = verify_ins_credentials(student_number, password)
-    if ins_data is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid INS credentials. Check your student number and password.",
-        )
-
-    # 2. Upsert User (INS students may not have an email)
+    # 1. Upsert User (INS students may not have an email)
     student = db.query(Student).filter(Student.student_number == student_number).first()
     if student is None:
         user = User(role="student")
         db.add(user)
-        db.flush()  # get user.id
+        db.flush()
 
         student = Student(
             user_id=user.id,
-            student_number=ins_data.student_number,
-            full_name=ins_data.full_name,
+            student_number=student_number,
+            full_name=student_number,
             profile_source="ins_verified",
         )
         db.add(student)
         db.flush()
     else:
-        # Update name in case it changed
-        student.full_name = ins_data.full_name
         student.profile_source = "ins_verified"
         user = db.query(User).filter(User.id == student.user_id).first()
 
-    # 3. Upsert AcademicProfile
+        if user is None:
+            user = User(role="student")
+            db.add(user)
+            db.flush()
+            student.user_id = user.id
+    try:
+        run_sync_simple(db, str(user.id), student_number, password)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid INS credentials. Check your student number and password.",
+        ) from exc
+
+    db.refresh(student)
     profile = (
         db.query(StudentAcademicProfile)
         .filter(StudentAcademicProfile.student_id == student.id)
         .first()
     )
+
     now = datetime.now(UTC)
-    if profile is None:
-        profile = StudentAcademicProfile(
-            student_id=student.id,
-            department_name=ins_data.department,
-            major_name=ins_data.major,
-            academic_year=ins_data.academic_year,
-            current_gpa=ins_data.current_gpa,
-            gpa_is_verified=True,  # INS data is trusted
-            academic_status=ins_data.academic_status,
-            last_synced_at=now,
-        )
-        db.add(profile)
-    else:
-        profile.department_name = ins_data.department
-        profile.major_name = ins_data.major
-        profile.academic_year = ins_data.academic_year
-        profile.current_gpa = ins_data.current_gpa
-        profile.gpa_is_verified = True
-        profile.academic_status = ins_data.academic_status
-        profile.last_synced_at = now
-
-    db.flush()
-
-    # 4. Sync completed courses (replace all ins_verified ones)
-    db.query(StudentCompletedCourse).filter(
-        StudentCompletedCourse.student_id == student.id,
-        StudentCompletedCourse.source == "ins_verified",
-    ).delete()
-    for course in ins_data.completed_courses:
-        db.add(
-            StudentCompletedCourse(
-                student_id=student.id,
-                course_code=course.code,
-                course_title=course.title,
-                grade=course.grade,
-                credits=course.credits,
-                source="ins_verified",
-            )
-        )
 
     # 5. Upsert ExternalAccount
     ext = (
@@ -151,11 +111,11 @@ def login_student_ins(db: Session, student_number: str, password: str) -> INSLog
     token = create_access_token(user.id, "student")
     return INSLoginResponse(
         access_token=token,
-        student_number=ins_data.student_number,
-        full_name=ins_data.full_name,
-        department=ins_data.department,
-        major=ins_data.major,
-        current_gpa=ins_data.current_gpa,
+        student_number=student.student_number,
+        full_name=student.full_name,
+        department=profile.department_name if profile else "",
+        major=profile.major_name if profile else "",
+        current_gpa=float(profile.current_gpa) if profile and profile.current_gpa else 0.0,
     )
 
 
