@@ -1,7 +1,6 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
-from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
 
 from app.core.config import settings
@@ -18,7 +17,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def create_access_token(user_id: int, role: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
+    expire = datetime.now(UTC) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
     payload = {"sub": str(user_id), "role": role, "exp": expire}
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALG)
 
