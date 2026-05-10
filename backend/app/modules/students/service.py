@@ -2,12 +2,9 @@
 Student profile service — get profile, update manual profile, re-sync INS.
 """
 
-from datetime import UTC, datetime
-
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.integrations.ins_client import verify_ins_credentials
 from app.modules.students.models import Student, StudentAcademicProfile, StudentCompletedCourse
 from app.modules.students.schemas import (
     AcademicProfileOut,
@@ -15,6 +12,7 @@ from app.modules.students.schemas import (
     ManualProfileUpdateRequest,
     StudentProfileResponse,
 )
+from app.modules.sync.simple_scraper import run_sync_simple
 
 
 def get_student_profile(db: Session, student: Student) -> StudentProfileResponse:
@@ -99,51 +97,25 @@ def update_manual_profile(
     return get_student_profile(db, student)
 
 
-def sync_ins_profile(db: Session, student: Student) -> StudentProfileResponse:
+def sync_ins_profile(db: Session, student: Student, password: str) -> StudentProfileResponse:
     """Re-sync INS data for an INS-verified student."""
     if student.profile_source != "ins_verified":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only INS-verified students can sync from INS.",
         )
-    # Re-verify with INS using the student number (mock accepts it as password)
-    ins_data = verify_ins_credentials(student.student_number, student.student_number)
-    if ins_data is None:
+    if student.user_id is None:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="INS is currently unavailable. Try again later.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Student user id is missing.",
         )
 
-    profile = (
-        db.query(StudentAcademicProfile)
-        .filter(StudentAcademicProfile.student_id == student.id)
-        .first()
-    )
-    now = datetime.now(UTC)
-    if profile:
-        profile.department_name = ins_data.department
-        profile.major_name = ins_data.major
-        profile.academic_year = ins_data.academic_year
-        profile.current_gpa = ins_data.current_gpa
-        profile.gpa_is_verified = True
-        profile.academic_status = ins_data.academic_status
-        profile.last_synced_at = now
+    try:
+        run_sync_simple(db, str(student.user_id), student.student_number, password)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid INS credentials. Check your password.",
+        ) from exc
 
-    # Refresh INS courses
-    db.query(StudentCompletedCourse).filter(
-        StudentCompletedCourse.student_id == student.id,
-        StudentCompletedCourse.source == "ins_verified",
-    ).delete()
-    for course in ins_data.completed_courses:
-        db.add(
-            StudentCompletedCourse(
-                student_id=student.id,
-                course_code=course.code,
-                course_title=course.title,
-                grade=course.grade,
-                credits=course.credits,
-                source="ins_verified",
-            )
-        )
-    db.commit()
     return get_student_profile(db, student)
