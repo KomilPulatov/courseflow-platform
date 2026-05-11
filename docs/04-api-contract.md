@@ -288,8 +288,8 @@ Query parameters:
 
 Returns eligibility for current student.
 
-Current implementation note: until the auth slice lands, student identity is provided by
-the temporary `X-Student-Id` request header.
+Current implementation supports `Authorization: Bearer <student_token>` and keeps
+`X-Student-Id` as a simple Swagger/test fallback.
 
 Response:
 
@@ -323,9 +323,10 @@ Response:
 
 ### POST `/registrations`
 
-Current implementation note: until JWT auth is implemented, pass the current student as:
+Use either a student bearer token or the demo header:
 
 ```text
+Authorization: Bearer <student_token>
 X-Student-Id: 1
 ```
 
@@ -378,7 +379,23 @@ Response:
 {
   "status": "dropped",
   "enrollment_id": 9001,
-  "section_id": 101
+  "section_id": 101,
+  "promoted": null
+}
+```
+
+Response with automatic FIFO waitlist promotion:
+
+```json
+{
+  "status": "dropped",
+  "enrollment_id": 9001,
+  "section_id": 101,
+  "promoted": {
+    "student_id": 44,
+    "enrollment_id": 9002,
+    "waitlist_entry_id": 55
+  }
 }
 ```
 
@@ -390,9 +407,60 @@ Response:
 
 ### GET `/waitlists/me`
 
+Returns current waiting entries for the current student.
+
+Response:
+
+```json
+[
+  {
+    "waitlist_entry_id": 55,
+    "section_id": 101,
+    "course_code": "CSE3010",
+    "course_title": "Database Application and Design",
+    "position": 1,
+    "status": "waiting",
+    "created_at": "2026-05-07T10:00:00Z"
+  }
+]
+```
+
 ### POST `/waitlists`
 
+Directly joins a waitlist for a full section. If the section has a free seat, the
+API returns `section_has_available_seats` and the student should register instead.
+
+Request:
+
+```json
+{
+  "section_id": 101
+}
+```
+
+Response:
+
+```json
+{
+  "status": "waitlisted",
+  "waitlist_entry_id": 55,
+  "position": 1
+}
+```
+
 ### DELETE `/waitlists/{entry_id}`
+
+Cancels the current student's waiting entry.
+
+Response:
+
+```json
+{
+  "status": "cancelled",
+  "waitlist_entry_id": 55,
+  "section_id": 101
+}
+```
 
 ## 10. WebSocket API
 

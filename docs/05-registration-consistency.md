@@ -173,18 +173,24 @@ Alternative: lock section row and calculate position safely inside the same tran
 
 ## 7. Drop and promotion consistency
 
-Current slice implementation supports safe student drop by locking the enrollment row
-and marking it `dropped`. Automatic waitlist promotion remains a worker/platform
-integration task so it does not conflict with the reliability slice.
+Current slice implementation supports safe student drop and automatic FIFO waitlist
+promotion. The request locks the enrollment and section, marks the enrollment
+`dropped`, then checks waiting entries in position order. The first still-eligible
+student is promoted in the same transaction. Ineligible waiting entries are marked
+`skipped` and the service continues to the next waiting student.
 
 When a student drops:
 
 1. Begin transaction.
 2. Lock enrollment row.
-3. Mark enrollment as dropped.
-4. Write audit log and registration event.
-5. Commit.
-6. Publish section-change and registration-event adapter calls.
+3. Lock section row.
+4. Mark enrollment as dropped.
+5. Lock waiting entries for the section in FIFO order.
+6. Re-check eligibility for each waiting student.
+7. Promote the first eligible waiting student, or mark ineligible entries as skipped.
+8. Write audit log and registration event rows.
+9. Commit.
+10. Publish section-change and registration-event adapter calls.
 
 ## 8. Concurrency test
 
@@ -208,7 +214,9 @@ WHERE section_id = 101 AND status = 'enrolled';
 ```
 
 The automated test suite currently covers the capacity invariant, idempotency,
-waitlisting, duplicate prevention, drop behavior, and eligibility rule decisions.
+waitlisting, waitlist cancellation, duplicate prevention, drop behavior, FIFO
+promotion, skipped ineligible waitlist entries, JWT/header identity, and
+eligibility rule decisions.
 A true multi-connection PostgreSQL load test should be run once Docker Compose and
 PostgreSQL are wired into the integration environment.
 

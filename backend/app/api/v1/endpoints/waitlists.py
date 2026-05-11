@@ -8,13 +8,11 @@ from app.api.deps import get_current_student_id
 from app.db.session import get_db
 from app.modules.registration.errors import RegistrationError
 from app.modules.registration.schemas import (
-    DropRegistrationResponse,
-    EnrolledResponse,
     ErrorResponse,
-    RegistrationCreate,
-    RegistrationListItem,
-    TimetableItem,
+    WaitlistCancelResponse,
+    WaitlistCreate,
     WaitlistedResponse,
+    WaitlistItem,
 )
 from app.modules.registration.service import RegistrationService
 
@@ -22,15 +20,24 @@ router = APIRouter()
 
 
 def registration_error_response(exc: RegistrationError) -> JSONResponse:
+    # Keep business-rule errors in the same JSON shape as the registration routes.
     return JSONResponse(
         status_code=int(exc.status_code),
         content=ErrorResponse(error=exc.code, message=exc.message).model_dump(),
     )
 
 
+@router.get("/me", response_model=list[WaitlistItem])
+def list_my_waitlist(
+    student_id: Annotated[int, Depends(get_current_student_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> list[WaitlistItem]:
+    return RegistrationService(db).list_waitlist(student_id)
+
+
 @router.post(
     "",
-    response_model=EnrolledResponse | WaitlistedResponse,
+    response_model=WaitlistedResponse,
     responses={
         400: {"model": ErrorResponse},
         404: {"model": ErrorResponse},
@@ -38,48 +45,32 @@ def registration_error_response(exc: RegistrationError) -> JSONResponse:
     },
     status_code=status.HTTP_200_OK,
 )
-def create_registration(
-    payload: RegistrationCreate,
+def join_waitlist(
+    payload: WaitlistCreate,
     student_id: Annotated[int, Depends(get_current_student_id)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, Any] | JSONResponse:
+    # The service does the actual capacity and eligibility checks inside a transaction.
     try:
-        return RegistrationService(db).register(student_id, payload)
+        return RegistrationService(db).join_waitlist(student_id, payload)
     except RegistrationError as exc:
         return registration_error_response(exc)
 
 
 @router.delete(
-    "/{enrollment_id}",
-    response_model=DropRegistrationResponse,
+    "/{entry_id}",
+    response_model=WaitlistCancelResponse,
     responses={
-        400: {"model": ErrorResponse},
         404: {"model": ErrorResponse},
         409: {"model": ErrorResponse},
     },
 )
-def delete_registration(
-    enrollment_id: int,
+def cancel_waitlist(
+    entry_id: int,
     student_id: Annotated[int, Depends(get_current_student_id)],
     db: Annotated[Session, Depends(get_db)],
-) -> dict[str, Any] | JSONResponse:
+) -> dict[str, str | int] | JSONResponse:
     try:
-        return RegistrationService(db).drop(student_id, enrollment_id)
+        return RegistrationService(db).cancel_waitlist(student_id, entry_id)
     except RegistrationError as exc:
         return registration_error_response(exc)
-
-
-@router.get("/me", response_model=list[RegistrationListItem])
-def list_my_registrations(
-    student_id: Annotated[int, Depends(get_current_student_id)],
-    db: Annotated[Session, Depends(get_db)],
-) -> list[RegistrationListItem]:
-    return RegistrationService(db).list_current(student_id)
-
-
-@router.get("/me/timetable", response_model=list[TimetableItem])
-def get_my_timetable(
-    student_id: Annotated[int, Depends(get_current_student_id)],
-    db: Annotated[Session, Depends(get_db)],
-) -> list[TimetableItem]:
-    return RegistrationService(db).timetable(student_id)

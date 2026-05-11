@@ -33,6 +33,18 @@ class DuplicateRegistrationError(RegistrationError):
     status_code = HTTPStatus.CONFLICT
 
 
+class SectionHasAvailableSeatsError(RegistrationError):
+    code = "section_has_available_seats"
+    message = "This section still has available seats. Register instead of joining waitlist."
+    status_code = HTTPStatus.CONFLICT
+
+
+class WaitlistEntryNotActiveError(RegistrationError):
+    code = "waitlist_entry_not_active"
+    message = "Waitlist entry is not active."
+    status_code = HTTPStatus.CONFLICT
+
+
 class MissingPrerequisiteError(RegistrationError):
     code = "missing_prerequisite"
 

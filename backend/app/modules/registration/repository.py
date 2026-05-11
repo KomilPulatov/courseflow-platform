@@ -12,6 +12,7 @@ class RegistrationRepository:
         return self.db.get(models.Student, student_id)
 
     def get_section_for_update(self, section_id: int) -> models.Section | None:
+        # Row locking serializes seat decisions for the same section in PostgreSQL.
         stmt = select(models.Section).where(models.Section.id == section_id).with_for_update()
         return self.db.execute(stmt).scalar_one_or_none()
 
@@ -96,6 +97,45 @@ class RegistrationRepository:
         )
         return self.db.execute(stmt).scalar_one_or_none()
 
+    def get_waitlist_entry_for_update(self, entry_id: int) -> models.WaitlistEntry | None:
+        stmt = (
+            select(models.WaitlistEntry)
+            .where(models.WaitlistEntry.id == entry_id)
+            .with_for_update()
+        )
+        return self.db.execute(stmt).scalar_one_or_none()
+
+    def waiting_entries_for_section_for_update(
+        self,
+        section_id: int,
+    ) -> list[models.WaitlistEntry]:
+        # Promotion must process waitlist entries in FIFO order and lock them first.
+        stmt = (
+            select(models.WaitlistEntry)
+            .where(
+                models.WaitlistEntry.section_id == section_id,
+                models.WaitlistEntry.status == "waiting",
+            )
+            .order_by(models.WaitlistEntry.position.asc())
+            .with_for_update()
+        )
+        return list(self.db.execute(stmt).scalars())
+
+    def waitlist_entries_for_student(
+        self,
+        student_id: int,
+        statuses: tuple[str, ...] = ("waiting",),
+    ) -> list[models.WaitlistEntry]:
+        stmt = (
+            select(models.WaitlistEntry)
+            .where(
+                models.WaitlistEntry.student_id == student_id,
+                models.WaitlistEntry.status.in_(statuses),
+            )
+            .order_by(models.WaitlistEntry.created_at.desc())
+        )
+        return list(self.db.execute(stmt).scalars())
+
     def count_active_enrollments(self, section_id: int) -> int:
         stmt = (
             select(func.count())
@@ -131,7 +171,7 @@ class RegistrationRepository:
         section_id: int,
         course_id: int,
         semester_id: int,
-        idempotency_key: str,
+        idempotency_key: str | None = None,
     ) -> models.Enrollment:
         enrollment = models.Enrollment(
             student_id=student_id,
@@ -146,6 +186,21 @@ class RegistrationRepository:
         return enrollment
 
     def create_waitlist_entry(self, *, student_id: int, section_id: int) -> models.WaitlistEntry:
+        # The table has one waitlist row per student/section. Reuse inactive rows so a
+        # student can rejoin after cancellation or after being skipped.
+        existing = self.get_waitlist_entry(
+            student_id,
+            section_id,
+            statuses=("cancelled", "skipped", "promoted"),
+        )
+        if existing is not None:
+            existing.position = self.next_waitlist_position(section_id)
+            existing.status = "waiting"
+            existing.promoted_at = None
+            existing.created_at = models.utc_now()
+            self.db.flush()
+            return existing
+
         entry = models.WaitlistEntry(
             student_id=student_id,
             section_id=section_id,

@@ -66,6 +66,7 @@ All run from `backend/` unless noted.
 | Sync env to lockfile | `uv sync` |
 | Run server (reload) | `uv run uvicorn app.main:app --reload` |
 | Run tests | `uv run pytest` |
+| Seed registration demo data | `uv run python scripts/seed_registration_demo.py` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Format check (CI-style) | `uv run ruff format --check .` |
