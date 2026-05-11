@@ -20,7 +20,9 @@ from app.modules.registration.errors import (
     ProfileIncompleteError,
     RegistrationError,
     RegistrationPeriodClosedError,
+    SectionHasAvailableSeatsError,
     TimetableConflictError,
+    WaitlistEntryNotActiveError,
 )
 from app.modules.registration.publishers import (
     AvailabilityPublisher,
@@ -30,13 +32,18 @@ from app.modules.registration.publishers import (
 )
 from app.modules.registration.repository import RegistrationRepository
 from app.modules.registration.schemas import (
+    DropRegistrationResponse,
     EligibilityCheck,
     EligibilityResponse,
     EnrolledResponse,
+    PromotedWaitlistStudent,
     RegistrationCreate,
     RegistrationListItem,
     TimetableItem,
+    WaitlistCancelResponse,
+    WaitlistCreate,
     WaitlistedResponse,
+    WaitlistItem,
 )
 
 CREDIT_LIMIT = 18
@@ -68,6 +75,7 @@ class RegistrationService:
         )
 
     def register(self, student_id: int, payload: RegistrationCreate) -> dict[str, Any]:
+        # Idempotency protects students from double-clicks or network retries.
         request_hash = self._request_hash(payload)
         existing = self.repo.get_idempotency_record(student_id, payload.idempotency_key)
         if existing is not None:
@@ -83,12 +91,19 @@ class RegistrationService:
                 payload.section_id,
                 lock_section=True,
             )
-            checks = self._build_eligibility_checks(student, section, offering, course, semester)
+            checks = self._build_eligibility_checks(
+                student,
+                section,
+                offering,
+                course,
+                semester,
+            )
             self._raise_first_failed_check(checks)
             self._ensure_not_duplicate(student.id, section.id, course.id, semester.id)
 
             enrolled_count = self.repo.count_active_enrollments(section.id)
             if enrolled_count >= section.capacity:
+                # Full sections do not fail registration; eligible students enter FIFO waitlist.
                 waitlist_entry = self.repo.create_waitlist_entry(
                     student_id=student.id,
                     section_id=section.id,
@@ -139,20 +154,130 @@ class RegistrationService:
         self.event_publisher.publish_registration_event(event_type, response_body)
         return response_body
 
-    def drop(self, student_id: int, enrollment_id: int) -> dict[str, str | int]:
+    def join_waitlist(self, student_id: int, payload: WaitlistCreate) -> dict[str, Any]:
+        event_type = "RegistrationFailed"
+        response_body: dict[str, Any] | None = None
+        try:
+            student, section, offering, course, semester = self._load_context(
+                student_id,
+                payload.section_id,
+                lock_section=True,
+            )
+            checks = self._build_eligibility_checks(student, section, offering, course, semester)
+            self._raise_first_failed_check(checks)
+
+            if self.repo.count_active_enrollments(section.id) < section.capacity:
+                # Direct waitlist join is only valid when registration cannot take a seat.
+                raise SectionHasAvailableSeatsError()
+
+            waitlist_entry = self.repo.create_waitlist_entry(
+                student_id=student.id,
+                section_id=section.id,
+            )
+            response = WaitlistedResponse(
+                waitlist_entry_id=waitlist_entry.id,
+                position=waitlist_entry.position,
+            )
+            response_body = response.model_dump()
+            event_type = "StudentWaitlisted"
+            self._record_success(
+                student.id,
+                section.id,
+                event_type,
+                waitlist_entry.id,
+                response_body,
+            )
+            self.db.commit()
+        except RegistrationError as exc:
+            self.db.rollback()
+            self._record_failure_after_rollback(student_id, payload.section_id, exc)
+            raise
+        except IntegrityError as exc:
+            self.db.rollback()
+            duplicate = DuplicateRegistrationError()
+            self._record_failure_after_rollback(student_id, payload.section_id, duplicate)
+            raise duplicate from exc
+
+        self.availability_publisher.publish_section_changed(payload.section_id)
+        self.event_publisher.publish_registration_event(event_type, response_body)
+        return response_body
+
+    def cancel_waitlist(self, student_id: int, entry_id: int) -> dict[str, str | int]:
+        entry = self.repo.get_waitlist_entry_for_update(entry_id)
+        if entry is None or entry.student_id != student_id:
+            raise NotFoundError("Waitlist entry was not found for this student.")
+        if entry.status != "waiting":
+            raise WaitlistEntryNotActiveError()
+
+        entry.status = "cancelled"
+        payload = WaitlistCancelResponse(
+            waitlist_entry_id=entry.id,
+            section_id=entry.section_id,
+        ).model_dump()
+        self.repo.add_audit_log(
+            student_id=student_id,
+            event_type="waitlist_cancelled",
+            entity_type="waitlist_entry",
+            entity_id=entry.id,
+            payload=payload,
+        )
+        self.repo.add_registration_event(
+            student_id=student_id,
+            section_id=entry.section_id,
+            event_type="WaitlistCancelled",
+            payload=payload,
+        )
+        self.db.commit()
+        self.availability_publisher.publish_section_changed(entry.section_id)
+        self.event_publisher.publish_registration_event("WaitlistCancelled", payload)
+        return payload
+
+    def list_waitlist(self, student_id: int) -> list[WaitlistItem]:
+        items: list[WaitlistItem] = []
+        for entry in self.repo.waitlist_entries_for_student(student_id):
+            section = self.repo.get_section(entry.section_id)
+            if section is None:
+                continue
+            offering = self.repo.get_offering(section.course_offering_id)
+            if offering is None:
+                continue
+            course = self.repo.get_course(offering.course_id)
+            if course is None:
+                continue
+            items.append(
+                WaitlistItem(
+                    waitlist_entry_id=entry.id,
+                    section_id=entry.section_id,
+                    course_code=course.code,
+                    course_title=course.title,
+                    position=entry.position,
+                    status=entry.status,
+                    created_at=entry.created_at,
+                )
+            )
+        return items
+
+    def drop(self, student_id: int, enrollment_id: int) -> dict[str, Any]:
         enrollment = self.repo.get_enrollment_for_update(enrollment_id)
         if enrollment is None or enrollment.student_id != student_id:
             raise NotFoundError("Enrollment was not found for this student.")
         if enrollment.status != "enrolled":
             raise DuplicateRegistrationError("Enrollment is not active.")
 
+        section = self.repo.get_section_for_update(enrollment.section_id)
+        if section is None:
+            raise NotFoundError("Section was not found.")
+
         enrollment.status = "dropped"
         enrollment.dropped_at = datetime.now(UTC)
-        payload = {
-            "status": "dropped",
-            "enrollment_id": enrollment.id,
-            "section_id": enrollment.section_id,
-        }
+        # Flush makes the dropped seat visible to the following count in this transaction.
+        self.db.flush()
+        promoted = self._promote_next_waitlisted_student(section)
+        payload = DropRegistrationResponse(
+            enrollment_id=enrollment.id,
+            section_id=enrollment.section_id,
+            promoted=promoted,
+        ).model_dump()
         self.repo.add_audit_log(
             student_id=student_id,
             event_type="student_dropped",
@@ -255,16 +380,26 @@ class RegistrationService:
         offering: models.CourseOffering,
         course: models.Course,
         semester: models.Semester,
+        *,
+        include_waitlist_duplicate: bool = True,
     ) -> list[EligibilityCheck]:
+        # Promotion reuses these checks but ignores the student's own waiting entry.
         profile = student.academic_profile
         checks = [
             self._profile_check(student),
             self._registration_period_check(semester.id),
-            self._duplicate_check(student.id, section.id, course.id, semester.id),
+            self._duplicate_check(
+                student.id,
+                section.id,
+                course.id,
+                semester.id,
+                include_waitlist=include_waitlist_duplicate,
+            ),
             self._prerequisite_check(student.id, course.id),
             *self._course_rule_checks(student, course.id),
             self._timetable_check(student.id, section.id),
             self._credit_limit_check(student.id, semester.id, course.credits),
+            self._capacity_check(section),
         ]
         if profile is not None and student.profile_source == "manual":
             checks.append(
@@ -315,12 +450,17 @@ class RegistrationService:
         section_id: int,
         course_id: int,
         semester_id: int,
+        *,
+        include_waitlist: bool = True,
     ) -> EligibilityCheck:
         duplicate = (
             self.repo.get_active_section_enrollment(student_id, section_id) is not None
             or self.repo.get_active_course_enrollment(student_id, course_id, semester_id)
             is not None
-            or self.repo.get_waitlist_entry(student_id, section_id) is not None
+            or (
+                include_waitlist
+                and self.repo.get_waitlist_entry(student_id, section_id) is not None
+            )
         )
         return EligibilityCheck(
             rule="duplicate_registration",
@@ -450,6 +590,20 @@ class RegistrationService:
             ),
         )
 
+    def _capacity_check(self, section: models.Section) -> EligibilityCheck:
+        remaining = section.capacity - self.repo.count_active_enrollments(section.id)
+        if remaining > 0:
+            return EligibilityCheck(
+                rule="capacity",
+                status="passed",
+                message=f"{remaining} seats remaining.",
+            )
+        return EligibilityCheck(
+            rule="capacity",
+            status="skipped",
+            message="Section is full; eligible students can join the waitlist.",
+        )
+
     def _raise_first_failed_check(self, checks: list[EligibilityCheck]) -> None:
         for check in checks:
             if check.status != "failed":
@@ -486,9 +640,105 @@ class RegistrationService:
         course_id: int,
         semester_id: int,
     ) -> None:
-        duplicate = self._duplicate_check(student_id, section_id, course_id, semester_id)
+        duplicate = self._duplicate_check(
+            student_id,
+            section_id,
+            course_id,
+            semester_id,
+        )
         if duplicate.status == "failed":
             raise DuplicateRegistrationError()
+
+    def _promote_next_waitlisted_student(
+        self,
+        section: models.Section,
+    ) -> PromotedWaitlistStudent | None:
+        # This method is called while the section row is locked by drop().
+        if self.repo.count_active_enrollments(section.id) >= section.capacity:
+            return None
+
+        offering = self.repo.get_offering(section.course_offering_id)
+        if offering is None:
+            raise NotFoundError("Course offering was not found.")
+        course = self.repo.get_course(offering.course_id)
+        semester = self.repo.get_semester(offering.semester_id)
+        if course is None:
+            raise NotFoundError("Course was not found.")
+        if semester is None:
+            raise NotFoundError("Semester was not found.")
+
+        for entry in self.repo.waiting_entries_for_section_for_update(section.id):
+            student = self.repo.get_student(entry.student_id)
+            if student is None:
+                self._skip_waitlist_entry(entry, "Student profile was not found.")
+                continue
+
+            checks = self._build_eligibility_checks(
+                student,
+                section,
+                offering,
+                course,
+                semester,
+                include_waitlist_duplicate=False,
+            )
+            failed_check = next((check for check in checks if check.status == "failed"), None)
+            if failed_check is not None:
+                # A student can become ineligible while waiting, so we skip and continue.
+                self._skip_waitlist_entry(entry, failed_check.message)
+                continue
+
+            enrollment = self.repo.create_enrollment(
+                student_id=entry.student_id,
+                section_id=section.id,
+                course_id=course.id,
+                semester_id=semester.id,
+            )
+            entry.status = "promoted"
+            entry.promoted_at = datetime.now(UTC)
+            promoted = PromotedWaitlistStudent(
+                student_id=entry.student_id,
+                enrollment_id=enrollment.id,
+                waitlist_entry_id=entry.id,
+            )
+            payload = promoted.model_dump()
+            self.repo.add_audit_log(
+                student_id=entry.student_id,
+                event_type="waitlist_promoted",
+                entity_type="waitlist_entry",
+                entity_id=entry.id,
+                payload=payload,
+            )
+            self.repo.add_registration_event(
+                student_id=entry.student_id,
+                section_id=section.id,
+                event_type="WaitlistPromoted",
+                payload=payload,
+            )
+            return promoted
+
+        return None
+
+    def _skip_waitlist_entry(self, entry: models.WaitlistEntry, reason: str) -> None:
+        # Skipped entries stay in history for explanation, but no longer block promotion.
+        entry.status = "skipped"
+        payload = {
+            "waitlist_entry_id": entry.id,
+            "section_id": entry.section_id,
+            "reason": reason,
+        }
+        self.repo.add_audit_log(
+            student_id=entry.student_id,
+            event_type="waitlist_skipped",
+            entity_type="waitlist_entry",
+            entity_id=entry.id,
+            payload=payload,
+        )
+        self.repo.add_registration_event(
+            student_id=entry.student_id,
+            section_id=entry.section_id,
+            event_type="WaitlistSkipped",
+            payload=payload,
+        )
 
     def _record_success(
         self,
@@ -538,7 +788,7 @@ class RegistrationService:
 
     @staticmethod
     def _is_period_open(period: models.RegistrationPeriod) -> bool:
-        now = datetime.utcnow()
+        now = datetime.now(UTC).replace(tzinfo=None)
         opens_at = RegistrationService._to_utc_naive(period.opens_at)
         closes_at = RegistrationService._to_utc_naive(period.closes_at)
         return opens_at <= now <= closes_at
