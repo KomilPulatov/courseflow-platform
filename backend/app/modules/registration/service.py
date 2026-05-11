@@ -333,11 +333,12 @@ class RegistrationService:
         )
 
     def _prerequisite_check(self, student_id: int, course_id: int) -> EligibilityCheck:
+        completed_ids = self.repo.get_completed_course_ids(student_id)
         completed_codes = self.repo.get_completed_course_codes(student_id)
         missing = [
             course.code
             for course in self.repo.get_prerequisites(course_id)
-            if course.code not in completed_codes
+            if course.id not in completed_ids and course.code not in completed_codes
         ]
         return EligibilityCheck(
             rule="prerequisite",

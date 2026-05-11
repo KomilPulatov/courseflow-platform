@@ -78,7 +78,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint("credits > 0", name="ck_course_credits_positive"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("code"),
+        sa.UniqueConstraint("code", name="uq_course_code"),
     )
     op.create_table(
         "student_academic_profiles",
