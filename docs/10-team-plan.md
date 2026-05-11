@@ -41,11 +41,11 @@ Everyone touches backend, database, frontend, tests, and docs, but in different 
 
 | Member | Primary slice | End-to-end responsibility |
 |---|---|---|
-| Komil | Registration consistency and project integration | Registration flow, eligibility orchestration, locking/idempotency, final architecture consistency, report integration. |
-| Azamat | Student profiles and INS/manual onboarding | INS-verified path, manual profile path, student ID uniqueness, completed-course profile data, profile API/UI/tests. |
-| Bekzod | Admin academic setup | Semesters, departments, majors, courses, prerequisites, eligibility rules, registration periods, admin UI/API/tests. |
-| Iftikhor | Professor rooms and timetable suggestions | Professor assigned sections, room allocation/selection, room validation, timetable suggestion algorithm/UI/tests. |
-| Farrukh | Platform reliability features | Redis cache, WebSocket updates, RabbitMQ/Celery pipeline, token-bucket limiter, observability, load/concurrency tests. |
+| Komil | Academic profile and eligibility | Academic profile foundation, eligibility orchestration, real-life eligibility rules, integration with registration checks. |
+| Azamat | Auth, identity, and onboarding | INS/manual onboarding, student identity uniqueness, auth flows, INS adapter, sync logs, profile entry UX. |
+| Bekzod | Catalog and demo surface | Course catalog, offerings, prerequisites, academic setup screens, demo UI flows, and API docs. |
+| Iftikhor | Rooms and scheduling | Room allocation/selection, professor room flow, room validation, timetable suggestion algorithm/UI/tests. |
+| Farrukh | Registration and platform reliability | Registration flow, waitlist, consistency guarantees, Redis/WebSocket/RabbitMQ pipeline, observability, load/concurrency proof. |
 
 This is not “backend vs frontend.” It is feature ownership. For example, Azamat’s slice includes DB tables, API endpoints, frontend forms, tests, and docs for student profiles.
 

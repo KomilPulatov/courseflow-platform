@@ -78,8 +78,8 @@ class StudentAcademicProfile(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id"), unique=True, nullable=False)
-    department_id: Mapped[int | None] = mapped_column(Integer)
-    major_id: Mapped[int | None] = mapped_column(Integer)
+    department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"))
+    major_id: Mapped[int | None] = mapped_column(ForeignKey("majors.id"))
     department_name: Mapped[str | None] = mapped_column(String(255))
     major_name: Mapped[str | None] = mapped_column(String(255))
     academic_year: Mapped[int | None] = mapped_column(Integer)
@@ -118,7 +118,12 @@ class StudentCompletedCourse(Base):
     student: Mapped[Student] = relationship(back_populates="completed_courses")
 
     __table_args__ = (
-        UniqueConstraint("student_id", "course_code", name="uq_completed_student_course_code"),
+        UniqueConstraint(
+            "student_id",
+            "course_code",
+            "course_title",
+            name="uq_completed_student_course_identity",
+        ),
         CheckConstraint("source IN ('ins_verified', 'manual')", name="ck_completed_source"),
     )
 
@@ -139,6 +144,49 @@ class ExternalAccount(Base):
     )
 
 
+class Department(Base):
+    __tablename__ = "departments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class Major(Base):
+    __tablename__ = "majors"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"), nullable=False)
+    code: Mapped[str] = mapped_column(String(20), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("department_id", "code", name="uq_major_department_code"),
+        UniqueConstraint("department_id", "name", name="uq_major_department_name"),
+    )
+
+
+class AcademicProgram(Base):
+    __tablename__ = "academic_programs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"), nullable=False)
+    code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    degree_level: Mapped[str] = mapped_column(String(30), nullable=False, default="undergraduate")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("department_id", "name", name="uq_program_department_name"),
+        CheckConstraint(
+            "degree_level IN ('undergraduate', 'graduate')",
+            name="ck_academic_program_degree_level",
+        ),
+    )
+
+
 class Semester(Base):
     __tablename__ = "semesters"
 
@@ -147,13 +195,21 @@ class Semester(Base):
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_semester_name"),
+        CheckConstraint(
+            "status IN ('draft', 'active', 'archived')",
+            name="ck_semester_status",
+        ),
+    )
+
 
 class Course(Base):
     __tablename__ = "courses"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    department_id: Mapped[int | None] = mapped_column(Integer)
-    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)
+    department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"))
+    code: Mapped[str] = mapped_column(String(40), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     credits: Mapped[int] = mapped_column(Integer, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
@@ -161,7 +217,10 @@ class Course(Base):
     is_repeatable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
-    __table_args__ = (CheckConstraint("credits > 0", name="ck_course_credits_positive"),)
+    __table_args__ = (
+        UniqueConstraint("code", "title", "credits", name="uq_course_catalog_identity"),
+        CheckConstraint("credits > 0", name="ck_course_credits_positive"),
+    )
 
 
 class CoursePrerequisite(Base):
@@ -179,6 +238,7 @@ class CoursePrerequisite(Base):
             "prerequisite_course_id",
             name="uq_course_prerequisite",
         ),
+        CheckConstraint("course_id <> prerequisite_course_id", name="ck_course_not_own_prereq"),
     )
 
 
@@ -195,6 +255,50 @@ class CourseEligibilityRule(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class CurriculumCourse(Base):
+    __tablename__ = "curriculum_courses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    program_id: Mapped[int] = mapped_column(ForeignKey("academic_programs.id"), nullable=False)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"), nullable=False)
+    category: Mapped[str] = mapped_column(String(80), nullable=False)
+    is_mandatory: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("program_id", "course_id", name="uq_curriculum_program_course"),
+    )
+
+
+class CurriculumCoursePlacement(Base):
+    __tablename__ = "curriculum_course_placements"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    curriculum_course_id: Mapped[int] = mapped_column(
+        ForeignKey("curriculum_courses.id"),
+        nullable=False,
+    )
+    academic_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    term: Mapped[str] = mapped_column(String(10), nullable=False)
+    slot_type: Mapped[str] = mapped_column(String(20), nullable=False, default="primary")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "curriculum_course_id",
+            "academic_year",
+            "term",
+            name="uq_curriculum_course_term",
+        ),
+        CheckConstraint("academic_year BETWEEN 1 AND 4", name="ck_curriculum_placement_year"),
+        CheckConstraint("term IN ('fall', 'spring')", name="ck_curriculum_placement_term"),
+        CheckConstraint(
+            "slot_type IN ('primary', 'optional')",
+            name="ck_curriculum_placement_slot_type",
+        ),
+    )
+
+
 class CourseOffering(Base):
     __tablename__ = "course_offerings"
 
@@ -203,6 +307,14 @@ class CourseOffering(Base):
     semester_id: Mapped[int] = mapped_column(ForeignKey("semesters.id"), nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("course_id", "semester_id", name="uq_course_offering_course_semester"),
+        CheckConstraint(
+            "status IN ('draft', 'active', 'cancelled', 'archived')",
+            name="ck_course_offering_status",
+        ),
+    )
 
 
 class Section(Base):
@@ -213,7 +325,7 @@ class Section(Base):
         ForeignKey("course_offerings.id"),
         nullable=False,
     )
-    professor_id: Mapped[int | None] = mapped_column(Integer)
+    professor_id: Mapped[int | None] = mapped_column(ForeignKey("professors.id"))
     section_code: Mapped[str] = mapped_column(String(40), nullable=False)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     room_selection_mode: Mapped[str] = mapped_column(
@@ -230,6 +342,14 @@ class Section(Base):
     __table_args__ = (
         UniqueConstraint("course_offering_id", "section_code", name="uq_section_offering_code"),
         CheckConstraint("capacity > 0", name="ck_section_capacity_positive"),
+        CheckConstraint(
+            "room_selection_mode IN ('admin_fixed', 'professor_choice', 'system_recommended')",
+            name="ck_section_room_selection_mode",
+        ),
+        CheckConstraint(
+            "status IN ('draft', 'open', 'closed', 'cancelled')",
+            name="ck_section_status",
+        ),
     )
 
 

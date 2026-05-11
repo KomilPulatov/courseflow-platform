@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CRSP Demo Console</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">CRSP Demo Console</p>
+        <h1>Academic setup, catalog browse, and section checks in one place.</h1>
+        <p class="lede">
+          This demo shell is wired to the real FastAPI endpoints. Seeded default admin:
+          <code>admin@crsp.local / admin12345</code>.
+        </p>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Admin Session</h2>
+            <span id="authState" class="badge muted">Signed out</span>
+          </div>
+          <form id="loginForm" class="stack">
+            <label>
+              <span>Email</span>
+              <input name="email" type="email" value="admin@crsp.local" required />
+            </label>
+            <label>
+              <span>Password</span>
+              <input name="password" type="password" value="admin12345" required />
+            </label>
+            <button type="submit">Sign In</button>
+          </form>
+          <button id="logoutButton" class="ghost">Clear Token</button>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Catalog Search</h2>
+            <button id="refreshCatalogButton" class="ghost">Refresh</button>
+          </div>
+          <form id="catalogSearchForm" class="inline-form">
+            <input name="search" placeholder="Search by code or title" />
+            <input name="semesterId" type="number" min="1" placeholder="Semester ID" />
+            <button type="submit">Load Courses</button>
+          </form>
+          <div id="catalogResults" class="results"></div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Admin Setup Flow</h2>
+            <span class="badge warm">Bekzod slice</span>
+          </div>
+          <div class="forms-grid">
+            <form id="departmentForm" class="stack card-form">
+              <h3>Create Department</h3>
+              <input name="code" placeholder="Code, e.g. CSE" required />
+              <input name="name" placeholder="Name" required />
+              <button type="submit">Create Department</button>
+            </form>
+
+            <form id="majorForm" class="stack card-form">
+              <h3>Create Major</h3>
+              <input name="departmentId" type="number" min="1" placeholder="Department ID" required />
+              <input name="code" placeholder="Code, e.g. SE" required />
+              <input name="name" placeholder="Name" required />
+              <button type="submit">Create Major</button>
+            </form>
+
+            <form id="semesterForm" class="stack card-form">
+              <h3>Create Semester</h3>
+              <input name="name" placeholder="Spring 2026" required />
+              <select name="status">
+                <option value="active">active</option>
+                <option value="draft">draft</option>
+                <option value="archived">archived</option>
+              </select>
+              <button type="submit">Create Semester</button>
+            </form>
+
+            <form id="courseForm" class="stack card-form">
+              <h3>Create Course</h3>
+              <input name="departmentId" type="number" min="1" placeholder="Department ID" />
+              <input name="code" placeholder="CSE3010" required />
+              <input name="title" placeholder="Course title" required />
+              <input name="credits" type="number" min="1" max="12" value="3" required />
+              <input name="courseType" placeholder="core / elective" />
+              <textarea name="description" placeholder="Description"></textarea>
+              <button type="submit">Create Course</button>
+            </form>
+
+            <form id="prerequisiteForm" class="stack card-form">
+              <h3>Replace Prerequisites</h3>
+              <input name="courseId" type="number" min="1" placeholder="Course ID" required />
+              <input name="prereqIds" placeholder="Comma-separated prerequisite IDs" />
+              <button type="submit">Save Prerequisites</button>
+            </form>
+
+            <form id="offeringForm" class="stack card-form">
+              <h3>Create Offering</h3>
+              <input name="courseId" type="number" min="1" placeholder="Course ID" required />
+              <input name="semesterId" type="number" min="1" placeholder="Semester ID" required />
+              <select name="status">
+                <option value="active">active</option>
+                <option value="draft">draft</option>
+                <option value="cancelled">cancelled</option>
+                <option value="archived">archived</option>
+              </select>
+              <button type="submit">Create Offering</button>
+            </form>
+
+            <form id="sectionForm" class="stack card-form">
+              <h3>Create Section</h3>
+              <input name="courseOfferingId" type="number" min="1" placeholder="Offering ID" required />
+              <input name="professorId" type="number" min="1" placeholder="Professor ID (optional)" />
+              <input name="sectionCode" placeholder="001" required />
+              <input name="capacity" type="number" min="1" value="30" required />
+              <select name="roomSelectionMode">
+                <option value="admin_fixed">admin_fixed</option>
+                <option value="professor_choice">professor_choice</option>
+                <option value="system_recommended">system_recommended</option>
+              </select>
+              <select name="status">
+                <option value="open">open</option>
+                <option value="draft">draft</option>
+                <option value="closed">closed</option>
+                <option value="cancelled">cancelled</option>
+              </select>
+              <button type="submit">Create Section</button>
+            </form>
+
+            <form id="periodForm" class="stack card-form">
+              <h3>Create Registration Period</h3>
+              <input name="semesterId" type="number" min="1" placeholder="Semester ID" required />
+              <input name="opensAt" type="datetime-local" required />
+              <input name="closesAt" type="datetime-local" required />
+              <select name="status">
+                <option value="open">open</option>
+                <option value="closed">closed</option>
+              </select>
+              <button type="submit">Create Period</button>
+            </form>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Section Tools</h2>
+            <span class="badge cool">Cross-slice checks</span>
+          </div>
+          <form id="sectionLookupForm" class="stack card-form">
+            <h3>Availability</h3>
+            <input name="sectionId" type="number" min="1" placeholder="Section ID" required />
+            <button type="submit">Load Availability</button>
+          </form>
+          <form id="eligibilityForm" class="stack card-form">
+            <h3>Eligibility Preview</h3>
+            <input name="sectionId" type="number" min="1" placeholder="Section ID" required />
+            <input name="studentId" type="number" min="1" placeholder="Student ID" required />
+            <button type="submit">Check Eligibility</button>
+          </form>
+          <div id="sectionResults" class="results"></div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Event Log</h2>
+          <button id="clearLogButton" class="ghost">Clear</button>
+        </div>
+        <pre id="eventLog" class="log"></pre>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+  </html>
