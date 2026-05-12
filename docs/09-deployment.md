@@ -44,6 +44,9 @@ grafana
 otel-collector
 ```
 
+Current repository implementation serves the static demo frontend from FastAPI at `/demo`;
+Nginx proxies `/demo`, `/api/*`, and `/ws/*` to the backend pool.
+
 ## 3. Docker dependency graph
 
 ```mermaid

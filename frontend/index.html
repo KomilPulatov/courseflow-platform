@@ -102,6 +102,16 @@
               <button type="submit">Save Prerequisites</button>
             </form>
 
+            <form id="eligibilityRuleForm" class="stack card-form">
+              <h3>Add Eligibility Rule</h3>
+              <input name="courseId" type="number" min="1" placeholder="Course ID" required />
+              <input name="minAcademicYear" type="number" min="1" max="6" placeholder="Minimum year" />
+              <input name="minGpa" type="number" min="0" max="5" step="0.01" placeholder="Minimum GPA" />
+              <input name="departmentIds" placeholder="Allowed department IDs" />
+              <input name="majorIds" placeholder="Allowed major IDs" />
+              <button type="submit">Add Rule</button>
+            </form>
+
             <form id="offeringForm" class="stack card-form">
               <h3>Create Offering</h3>
               <input name="courseId" type="number" min="1" placeholder="Course ID" required />
@@ -135,6 +145,32 @@
               <button type="submit">Create Section</button>
             </form>
 
+            <form id="professorForm" class="stack card-form">
+              <h3>Create Professor</h3>
+              <input name="email" type="email" placeholder="professor@crsp.local" required />
+              <input name="fullName" placeholder="Full name" required />
+              <input name="departmentName" placeholder="Department name" />
+              <input name="password" type="password" value="prof12345" required />
+              <button type="submit">Create Professor</button>
+            </form>
+
+            <form id="roomForm" class="stack card-form">
+              <h3>Create Room</h3>
+              <input name="building" placeholder="Building" />
+              <input name="roomNumber" placeholder="Room number" required />
+              <input name="capacity" type="number" min="1" value="30" required />
+              <input name="roomType" placeholder="lecture / lab" value="lecture" />
+              <button type="submit">Create Room</button>
+            </form>
+
+            <form id="roomAllocationForm" class="stack card-form">
+              <h3>Allocate Rooms</h3>
+              <input name="sectionId" type="number" min="1" placeholder="Section ID" required />
+              <input name="roomIds" placeholder="Comma-separated room IDs" required />
+              <input name="notes" placeholder="Notes" />
+              <button type="submit">Allocate Rooms</button>
+            </form>
+
             <form id="periodForm" class="stack card-form">
               <h3>Create Registration Period</h3>
               <input name="semesterId" type="number" min="1" placeholder="Semester ID" required />
@@ -145,6 +181,19 @@
                 <option value="closed">closed</option>
               </select>
               <button type="submit">Create Period</button>
+            </form>
+
+            <form id="schedulingForm" class="stack card-form">
+              <h3>Run Scheduling</h3>
+              <input name="semesterId" type="number" min="1" placeholder="Semester ID" required />
+              <input name="strategy" value="balanced_heuristic" required />
+              <button type="submit">Create Suggestion Run</button>
+            </form>
+
+            <form id="approveSchedulingForm" class="stack card-form">
+              <h3>Approve Schedule</h3>
+              <input name="runId" type="number" min="1" placeholder="Run ID" required />
+              <button type="submit">Approve Run</button>
             </form>
           </div>
         </article>
@@ -166,6 +215,59 @@
             <button type="submit">Check Eligibility</button>
           </form>
           <div id="sectionResults" class="results"></div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Professor Flow</h2>
+            <span id="professorAuthState" class="badge muted">Signed out</span>
+          </div>
+          <form id="professorLoginForm" class="stack card-form">
+            <h3>Professor Login</h3>
+            <input name="email" type="email" value="professor@crsp.local" required />
+            <input name="password" type="password" value="prof12345" required />
+            <button type="submit">Sign In</button>
+          </form>
+          <form id="roomOptionsForm" class="stack card-form">
+            <h3>Room Options</h3>
+            <input name="sectionId" type="number" min="1" placeholder="Section ID" required />
+            <button type="submit">Load Options</button>
+          </form>
+          <form id="roomPreferenceForm" class="stack card-form">
+            <h3>Choose Room</h3>
+            <input name="sectionId" type="number" min="1" placeholder="Section ID" required />
+            <input name="roomId" type="number" min="1" placeholder="Room ID" required />
+            <input name="preferenceRank" type="number" min="1" value="1" required />
+            <button type="submit">Save Preference</button>
+          </form>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Student Registration</h2>
+            <span id="studentAuthState" class="badge muted">Signed out</span>
+          </div>
+          <form id="manualStudentForm" class="stack card-form">
+            <h3>Manual Student</h3>
+            <input name="studentNumber" placeholder="2310204" required />
+            <input name="fullName" placeholder="Full name" required />
+            <input name="email" type="email" placeholder="student@example.com" required />
+            <input name="password" type="password" value="student12345" required />
+            <button type="submit">Create Student</button>
+          </form>
+          <form id="registerForm" class="stack card-form">
+            <h3>Register</h3>
+            <input name="sectionId" type="number" min="1" placeholder="Section ID" required />
+            <input name="idempotencyKey" placeholder="unique-key" required />
+            <button type="submit">Register</button>
+          </form>
+          <form id="waitlistForm" class="stack card-form">
+            <h3>Join Waitlist</h3>
+            <input name="sectionId" type="number" min="1" placeholder="Section ID" required />
+            <button type="submit">Join Waitlist</button>
+          </form>
         </article>
       </section>
 
