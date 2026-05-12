@@ -1,32 +1,37 @@
-from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
-
-from app.modules.rooms.schemas import RoomRead
 
 
 class SuggestionRunCreate(BaseModel):
     semester_id: int = Field(gt=0)
-    strategy: str = "balanced_heuristic"
+    strategy: str = Field(default="balanced_heuristic", min_length=2, max_length=80)
+
+
+class SuggestionRunStartResponse(BaseModel):
+    run_id: int
+    status: Literal["queued", "running", "completed", "approved", "failed"]
 
 
 class SuggestionItemRead(BaseModel):
+    id: int
     section_id: int
-    section_code: str
-    course_title: str
-    suggested_room: RoomRead | None
-    score: float | None
-    breakdown: dict | None
-    approved: bool
-
-    model_config = {"from_attributes": False}
+    room_id: int | None
+    time_slot_id: int | None
+    score: int
+    reasons: dict | None
+    status: str
 
 
 class SuggestionRunRead(BaseModel):
-    run_id: int
-    status: str
+    id: int
     semester_id: int
     strategy: str
-    created_at: datetime
-    completed_at: datetime | None
+    status: str
     items: list[SuggestionItemRead]
+
+
+class SuggestionApproveResponse(BaseModel):
+    run_id: int
+    status: Literal["approved"]
+    approved_items: int

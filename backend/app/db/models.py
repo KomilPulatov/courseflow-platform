@@ -368,6 +368,8 @@ class SectionSchedule(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     section_id: Mapped[int] = mapped_column(ForeignKey("sections.id"), nullable=False)
+    room_id: Mapped[int | None] = mapped_column(ForeignKey("rooms.id"))
+    time_slot_id: Mapped[int | None] = mapped_column(ForeignKey("time_slots.id"))
     day_of_week: Mapped[str] = mapped_column(String(12), nullable=False)
     start_time: Mapped[str] = mapped_column(String(5), nullable=False)
     end_time: Mapped[str] = mapped_column(String(5), nullable=False)
@@ -383,10 +385,11 @@ class Room(Base):
     capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     room_type: Mapped[str] = mapped_column(String(40), nullable=False, default="lecture")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     __table_args__ = (
-        CheckConstraint("capacity > 0", name="ck_room_capacity"),
-        UniqueConstraint("building", "room_number", name="uq_room_location"),
+        UniqueConstraint("building", "room_number", name="uq_room_building_number"),
+        CheckConstraint("capacity > 0", name="ck_room_capacity_positive"),
     )
 
 
@@ -397,13 +400,14 @@ class RoomAllocation(Base):
     section_id: Mapped[int] = mapped_column(ForeignKey("sections.id"), nullable=False)
     room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id"), nullable=False)
     allocated_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    notes: Mapped[str | None] = mapped_column(Text)
     is_preferred: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     room: Mapped[Room] = relationship()
 
     __table_args__ = (
-        UniqueConstraint("section_id", "room_id", name="uq_room_alloc"),
+        UniqueConstraint("section_id", "room_id", name="uq_room_allocation_section_room"),
     )
 
 
@@ -418,48 +422,34 @@ class ProfessorRoomPreference(Base):
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="selected")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
-    room: Mapped[Room] = relationship()
+    __table_args__ = (
+        UniqueConstraint(
+            "section_id",
+            "professor_id",
+            "room_id",
+            name="uq_professor_room_preference",
+        ),
+        CheckConstraint("preference_rank > 0", name="ck_prof_room_preference_rank_positive"),
+        CheckConstraint(
+            "status IN ('selected', 'cancelled')",
+            name="ck_prof_room_preference_status",
+        ),
+    )
+
+
+class TimeSlot(Base):
+    __tablename__ = "time_slots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    day_of_week: Mapped[str] = mapped_column(String(12), nullable=False)
+    start_time: Mapped[str] = mapped_column(String(5), nullable=False)
+    end_time: Mapped[str] = mapped_column(String(5), nullable=False)
+    label: Mapped[str | None] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     __table_args__ = (
-        UniqueConstraint("section_id", "professor_id", name="uq_prof_pref_section_professor"),
+        UniqueConstraint("day_of_week", "start_time", "end_time", name="uq_time_slot_window"),
     )
-
-
-class TimetableSuggestionRun(Base):
-    __tablename__ = "timetable_suggestion_runs"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    semester_id: Mapped[int] = mapped_column(ForeignKey("semesters.id"), nullable=False)
-    strategy: Mapped[str] = mapped_column(
-        String(60), nullable=False, default="balanced_heuristic"
-    )
-    status: Mapped[str] = mapped_column(String(30), nullable=False, default="completed")
-    created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-    items: Mapped[list["TimetableSuggestionItem"]] = relationship(
-        back_populates="run", cascade="all, delete-orphan"
-    )
-
-
-class TimetableSuggestionItem(Base):
-    __tablename__ = "timetable_suggestion_items"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    run_id: Mapped[int] = mapped_column(
-        ForeignKey("timetable_suggestion_runs.id"), nullable=False
-    )
-    section_id: Mapped[int] = mapped_column(ForeignKey("sections.id"), nullable=False)
-    suggested_room_id: Mapped[int | None] = mapped_column(ForeignKey("rooms.id"))
-    score: Mapped[float | None] = mapped_column(Numeric(6, 3))
-    breakdown: Mapped[dict | None] = mapped_column(JSON)
-    approved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-
-    run: Mapped[TimetableSuggestionRun] = relationship(back_populates="items")
-    suggested_room: Mapped[Room | None] = relationship()
-    section: Mapped["Section"] = relationship()
 
 
 class RegistrationPeriod(Base):
@@ -556,3 +546,65 @@ class RegistrationEvent(Base):
     payload: Mapped[dict | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class TimetableSuggestionRun(Base):
+    __tablename__ = "timetable_suggestion_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    semester_id: Mapped[int] = mapped_column(ForeignKey("semesters.id"), nullable=False)
+    strategy: Mapped[str] = mapped_column(String(80), nullable=False, default="balanced_heuristic")
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="completed")
+    requested_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued', 'running', 'completed', 'approved', 'failed')",
+            name="ck_timetable_run_status",
+        ),
+    )
+
+
+class TimetableSuggestionItem(Base):
+    __tablename__ = "timetable_suggestion_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("timetable_suggestion_runs.id"), nullable=False)
+    section_id: Mapped[int] = mapped_column(ForeignKey("sections.id"), nullable=False)
+    room_id: Mapped[int | None] = mapped_column(ForeignKey("rooms.id"))
+    time_slot_id: Mapped[int | None] = mapped_column(ForeignKey("time_slots.id"))
+    score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reasons: Mapped[dict | None] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="suggested")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("run_id", "section_id", name="uq_timetable_item_run_section"),
+        CheckConstraint(
+            "status IN ('suggested', 'approved', 'rejected')",
+            name="ck_timetable_item_status",
+        ),
+    )
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    student_id: Mapped[int | None] = mapped_column(ForeignKey("students.id"))
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    payload: Mapped[dict | None] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="unread")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('unread', 'read', 'archived')",
+            name="ck_notification_status",
+        ),
+    )

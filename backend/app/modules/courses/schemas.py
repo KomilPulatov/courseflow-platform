@@ -143,6 +143,24 @@ class CoursePrerequisiteRead(BaseModel):
     rule_group: str
 
 
+class CourseEligibilityRuleCreate(BaseModel):
+    min_academic_year: int | None = Field(default=None, ge=1, le=6)
+    min_gpa: float | None = Field(default=None, ge=0, le=5)
+    allowed_department_ids: list[int] | None = None
+    allowed_major_ids: list[int] | None = None
+    rule_metadata: dict | None = None
+
+
+class CourseEligibilityRuleRead(BaseModel):
+    id: int
+    course_id: int
+    min_academic_year: int | None
+    min_gpa: float | None
+    allowed_department_ids: list[int] | None
+    allowed_major_ids: list[int] | None
+    rule_metadata: dict | None
+
+
 CourseOfferingStatus = Literal["draft", "active", "cancelled", "archived"]
 
 

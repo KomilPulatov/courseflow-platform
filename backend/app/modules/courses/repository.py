@@ -122,6 +122,14 @@ class CourseCatalogRepository:
         )
         return list(self.db.execute(stmt).scalars())
 
+    def create_course_rule(
+        self, *, course_id: int, **kwargs: object
+    ) -> models.CourseEligibilityRule:
+        rule = models.CourseEligibilityRule(course_id=course_id, **kwargs)
+        self.db.add(rule)
+        self.db.flush()
+        return rule
+
     def delete_prerequisites(self, course_id: int) -> None:
         stmt = select(models.CoursePrerequisite).where(
             models.CoursePrerequisite.course_id == course_id
