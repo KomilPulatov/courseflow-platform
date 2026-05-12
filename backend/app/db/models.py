@@ -46,6 +46,8 @@ class Professor(Base):
     department_name: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
+    sections: Mapped[list["Section"]] = relationship("Section", viewonly=True)
+
 
 class Student(Base):
     __tablename__ = "students"
@@ -308,6 +310,9 @@ class CourseOffering(Base):
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
+    course: Mapped["Course"] = relationship("Course")
+    semester: Mapped["Semester"] = relationship("Semester")
+
     __table_args__ = (
         UniqueConstraint("course_id", "semester_id", name="uq_course_offering_course_semester"),
         CheckConstraint(
@@ -338,6 +343,11 @@ class Section(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     offering: Mapped[CourseOffering] = relationship()
+    schedules: Mapped[list["SectionSchedule"]] = relationship("SectionSchedule")
+    room_allocations: Mapped[list["RoomAllocation"]] = relationship("RoomAllocation")
+    room_preferences: Mapped[list["ProfessorRoomPreference"]] = relationship(
+        "ProfessorRoomPreference",
+    )
 
     __table_args__ = (
         UniqueConstraint("course_offering_id", "section_code", name="uq_section_offering_code"),
@@ -362,6 +372,94 @@ class SectionSchedule(Base):
     start_time: Mapped[str] = mapped_column(String(5), nullable=False)
     end_time: Mapped[str] = mapped_column(String(5), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class Room(Base):
+    __tablename__ = "rooms"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    building: Mapped[str | None] = mapped_column(String(80))
+    room_number: Mapped[str] = mapped_column(String(40), nullable=False)
+    capacity: Mapped[int] = mapped_column(Integer, nullable=False)
+    room_type: Mapped[str] = mapped_column(String(40), nullable=False, default="lecture")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        CheckConstraint("capacity > 0", name="ck_room_capacity"),
+        UniqueConstraint("building", "room_number", name="uq_room_location"),
+    )
+
+
+class RoomAllocation(Base):
+    __tablename__ = "room_allocations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    section_id: Mapped[int] = mapped_column(ForeignKey("sections.id"), nullable=False)
+    room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id"), nullable=False)
+    allocated_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    is_preferred: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    room: Mapped[Room] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("section_id", "room_id", name="uq_room_alloc"),
+    )
+
+
+class ProfessorRoomPreference(Base):
+    __tablename__ = "professor_room_preferences"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    section_id: Mapped[int] = mapped_column(ForeignKey("sections.id"), nullable=False)
+    professor_id: Mapped[int] = mapped_column(ForeignKey("professors.id"), nullable=False)
+    room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id"), nullable=False)
+    preference_rank: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="selected")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    room: Mapped[Room] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("section_id", "professor_id", name="uq_prof_pref_section_professor"),
+    )
+
+
+class TimetableSuggestionRun(Base):
+    __tablename__ = "timetable_suggestion_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    semester_id: Mapped[int] = mapped_column(ForeignKey("semesters.id"), nullable=False)
+    strategy: Mapped[str] = mapped_column(
+        String(60), nullable=False, default="balanced_heuristic"
+    )
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="completed")
+    created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    items: Mapped[list["TimetableSuggestionItem"]] = relationship(
+        back_populates="run", cascade="all, delete-orphan"
+    )
+
+
+class TimetableSuggestionItem(Base):
+    __tablename__ = "timetable_suggestion_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey("timetable_suggestion_runs.id"), nullable=False
+    )
+    section_id: Mapped[int] = mapped_column(ForeignKey("sections.id"), nullable=False)
+    suggested_room_id: Mapped[int | None] = mapped_column(ForeignKey("rooms.id"))
+    score: Mapped[float | None] = mapped_column(Numeric(6, 3))
+    breakdown: Mapped[dict | None] = mapped_column(JSON)
+    approved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    run: Mapped[TimetableSuggestionRun] = relationship(back_populates="items")
+    suggested_room: Mapped[Room | None] = relationship()
+    section: Mapped["Section"] = relationship()
 
 
 class RegistrationPeriod(Base):
