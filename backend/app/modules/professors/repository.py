@@ -4,13 +4,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import (
-    Course,
     CourseOffering,
     Professor,
     ProfessorRoomPreference,
     Section,
     SectionSchedule,
-    Semester,
 )
 
 
@@ -38,9 +36,7 @@ class ProfessorRepository:
         )
         return self.db.scalars(stmt).unique().all()
 
-    def get_section_for_professor(
-        self, section_id: int, professor_id: int
-    ) -> Section | None:
+    def get_section_for_professor(self, section_id: int, professor_id: int) -> Section | None:
         stmt = (
             select(Section)
             .options(joinedload(Section.schedules))

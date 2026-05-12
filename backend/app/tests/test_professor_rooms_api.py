@@ -21,8 +21,8 @@ from app.db.models import (
 from app.modules.professors.errors import RoomCapacityError, RoomNotInPoolError
 from app.modules.professors.service import ProfessorService
 
-
 # ── Seed helper ───────────────────────────────────────────────────────────────
+
 
 def seed_professor_rooms_case(db: Session, *, section_capacity: int = 30) -> dict:
     """Insert the minimum data needed for professor-room tests."""
@@ -67,18 +67,34 @@ def seed_professor_rooms_case(db: Session, *, section_capacity: int = 30) -> dic
         status="open",
     )
 
-    room_large = Room(id=1, building="A", room_number="101", capacity=40, room_type="lecture", is_active=True)
-    room_small = Room(id=2, building="A", room_number="102", capacity=20, room_type="lecture", is_active=True)
+    room_large = Room(
+        id=1, building="A", room_number="101", capacity=40, room_type="lecture", is_active=True
+    )
+    room_small = Room(
+        id=2, building="A", room_number="102", capacity=20, room_type="lecture", is_active=True
+    )
 
-    alloc_large = RoomAllocation(id=1, section_id=1, room_id=1, allocated_by_user_id=None, is_preferred=False)
+    alloc_large = RoomAllocation(
+        id=1, section_id=1, room_id=1, allocated_by_user_id=None, is_preferred=False
+    )
 
-    db.add_all([
-        dept, major, semester, course, offering,
-        prof_user, professor,
-        section, schedule, period,
-        room_large, room_small,
-        alloc_large,
-    ])
+    db.add_all(
+        [
+            dept,
+            major,
+            semester,
+            course,
+            offering,
+            prof_user,
+            professor,
+            section,
+            schedule,
+            period,
+            room_large,
+            room_small,
+            alloc_large,
+        ]
+    )
     db.commit()
 
     return {
@@ -90,7 +106,9 @@ def seed_professor_rooms_case(db: Session, *, section_capacity: int = 30) -> dic
     }
 
 
-def _get_professor_token(client, email: str = "prof@test.example.com", password: str = "password123") -> str:
+def _get_professor_token(
+    client, email: str = "prof@test.example.com", password: str = "password123"
+) -> str:
     resp = client.post(
         "/api/v1/auth/professor/login",
         json={"email": email, "password": password},
@@ -101,11 +119,13 @@ def _get_professor_token(client, email: str = "prof@test.example.com", password:
 
 # ── Unit tests: validation logic ──────────────────────────────────────────────
 
+
 def test_room_validation_rejects_room_not_in_pool(db_session: Session) -> None:
     seed = seed_professor_rooms_case(db_session)
     service = ProfessorService(db_session)
 
     from app.modules.professors.schemas import RoomPreferenceCreate
+
     with pytest.raises(RoomNotInPoolError):
         service.save_room_preference(
             user_id=seed["prof_user_id"],
@@ -128,6 +148,7 @@ def test_room_validation_rejects_small_room(db_session: Session) -> None:
 
     service = ProfessorService(db_session)
     from app.modules.professors.schemas import RoomPreferenceCreate
+
     with pytest.raises(RoomCapacityError):
         service.save_room_preference(
             user_id=seed["prof_user_id"],
@@ -137,6 +158,7 @@ def test_room_validation_rejects_small_room(db_session: Session) -> None:
 
 
 # ── API integration tests ─────────────────────────────────────────────────────
+
 
 def test_professor_lists_assigned_sections(client, db_session: Session) -> None:
     seed = seed_professor_rooms_case(db_session)

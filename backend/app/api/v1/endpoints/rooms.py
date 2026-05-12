@@ -24,6 +24,7 @@ AdminUser = Annotated[User, Depends(require_admin)]
 
 # ── Rooms ─────────────────────────────────────────────────────────────────────
 
+
 @router.get("/rooms", response_model=list[RoomRead])
 def list_rooms(_admin: AdminUser, db: DbSession) -> list[RoomRead]:
     return RoomService(db).list_rooms()
@@ -44,6 +45,7 @@ def create_room(
 
 
 # ── Room allocations ──────────────────────────────────────────────────────────
+
 
 @router.get(
     "/sections/{section_id}/room-allocations",
@@ -77,6 +79,7 @@ def allocate_rooms(
 
 
 # ── Professors (admin CRUD) ───────────────────────────────────────────────────
+
 
 @router.get("/professors", response_model=list[ProfessorRead])
 def list_professors(_admin: AdminUser, db: DbSession) -> list[ProfessorRead]:

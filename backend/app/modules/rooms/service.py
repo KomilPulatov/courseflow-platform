@@ -107,9 +107,7 @@ class RoomService:
         self._get_section(section_id)
         allocations = list(
             self.db.execute(
-                select(models.RoomAllocation).where(
-                    models.RoomAllocation.section_id == section_id
-                )
+                select(models.RoomAllocation).where(models.RoomAllocation.section_id == section_id)
             ).scalars()
         )
         return [self._allocation_read(a) for a in allocations]
