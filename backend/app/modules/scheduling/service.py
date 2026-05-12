@@ -16,9 +16,7 @@ class SchedulingService:
         self, payload: schemas.SuggestionRunCreate, requested_by_user_id: int
     ) -> schemas.SuggestionRunStartResponse:
         if self.db.get(models.Semester, payload.semester_id) is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Semester not found."
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Semester not found.")
         run = models.TimetableSuggestionRun(
             semester_id=payload.semester_id,
             strategy=payload.strategy,
@@ -121,12 +119,12 @@ class SchedulingService:
                     models.CourseOffering.semester_id == run.semester_id,
                     models.Section.status.in_(["open", "draft"]),
                 )
-            ).unique().scalars()
+            )
+            .unique()
+            .scalars()
         )
         rooms = list(
-            self.db.execute(
-                select(models.Room).where(models.Room.is_active.is_(True))
-            ).scalars()
+            self.db.execute(select(models.Room).where(models.Room.is_active.is_(True))).scalars()
         )
 
         booked_room_slots: dict[int, list[tuple[str, str, str]]] = {}

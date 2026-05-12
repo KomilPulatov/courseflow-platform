@@ -33,9 +33,7 @@ class ProfessorService:
     # ── Admin: professor management ──────────────────────────────────────────
 
     def create_professor(self, data: ProfessorCreate) -> ProfessorRead:
-        existing_user = self.db.scalars(
-            select(User).where(User.email == data.email)
-        ).one_or_none()
+        existing_user = self.db.scalars(select(User).where(User.email == data.email)).one_or_none()
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -105,9 +103,7 @@ class ProfessorService:
         if room.capacity < section.capacity:
             raise RoomCapacityError()
 
-        section_slots = [
-            (s.day_of_week, s.start_time, s.end_time) for s in section.schedules
-        ]
+        section_slots = [(s.day_of_week, s.start_time, s.end_time) for s in section.schedules]
         conflicts = self.room_repo.get_sections_using_room_at_slots(room.id, section_slots)
         other_conflicts = [s for s in conflicts if s.id != section_id]
         if other_conflicts:

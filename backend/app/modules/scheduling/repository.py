@@ -37,7 +37,9 @@ class SchedulingRepository:
         return self.db.scalars(stmt).unique().all()
 
     def list_active_rooms(self) -> Sequence[Room]:
-        stmt = select(Room).where(Room.is_active.is_(True)).order_by(Room.building, Room.room_number)
+        stmt = (
+            select(Room).where(Room.is_active.is_(True)).order_by(Room.building, Room.room_number)
+        )
         return self.db.scalars(stmt).all()
 
     def get_semester(self, semester_id: int) -> Semester | None:
@@ -83,8 +85,9 @@ class SchedulingRepository:
         stmt = (
             select(TimetableSuggestionRun)
             .options(
-                joinedload(TimetableSuggestionRun.items)
-                .joinedload(TimetableSuggestionItem.suggested_room),
+                joinedload(TimetableSuggestionRun.items).joinedload(
+                    TimetableSuggestionItem.suggested_room
+                ),
                 joinedload(TimetableSuggestionRun.items)
                 .joinedload(TimetableSuggestionItem.section)
                 .joinedload(Section.offering)
