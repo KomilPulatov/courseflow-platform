@@ -7,6 +7,8 @@ from app.db.models import (
     CourseEligibilityRule,
     CourseOffering,
     CoursePrerequisite,
+    Department,
+    Major,
     RegistrationPeriod,
     Section,
     SectionSchedule,
@@ -26,6 +28,8 @@ def seed_registration_case(
     with_prerequisite: bool = False,
 ) -> dict[str, int]:
     now = datetime.now(UTC)
+    department = Department(id=1, code="CSE", name="Computer Science")
+    major = Major(id=1, department_id=1, code="SE", name="Software Engineering")
     student = Student(
         id=student_id,
         student_number=f"2310{student_id:03d}",
@@ -63,7 +67,9 @@ def seed_registration_case(
         start_time="09:00",
         end_time="10:30",
     )
-    db.add_all([student, profile, semester, course, offering, section, period, schedule])
+    db.add_all(
+        [department, major, student, profile, semester, course, offering, section, period, schedule]
+    )
     if with_gpa_rule:
         db.add(CourseEligibilityRule(course_id=1, min_gpa=3.5))
     if with_prerequisite:
