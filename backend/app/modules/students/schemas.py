@@ -32,3 +32,7 @@ class ManualProfileUpdateRequest(BaseModel):
     major_name: str
     academic_year: int
     completed_course_codes: list[str] = []  # e.g. ["MSC1011", "CSE2010"]
+
+
+class INSSyncRequest(BaseModel):
+    password: str
