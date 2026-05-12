@@ -175,7 +175,7 @@ def test_professor_selects_room_successfully(client, db_session: Session) -> Non
     assert pref_resp.status_code == 200
     body = pref_resp.json()
     assert body["status"] == "selected"
-    assert body["room"]["id"] == room_id
+    assert body["room_id"] == room_id
 
 
 def test_admin_creates_suggestion_run(client, db_session: Session) -> None:
@@ -206,14 +206,15 @@ def test_admin_creates_suggestion_run(client, db_session: Session) -> None:
     assert run_resp.status_code == 201
     run = run_resp.json()
     assert run["status"] == "completed"
-    assert run["semester_id"] == 1
-    assert isinstance(run["items"], list)
-    assert len(run["items"]) >= 1
-
     run_id = run["run_id"]
+
     get_resp = client.get(
         f"/api/v1/admin/scheduling/suggestion-runs/{run_id}",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert get_resp.status_code == 200
-    assert get_resp.json()["run_id"] == run_id
+    run_detail = get_resp.json()
+    assert run_detail["id"] == run_id
+    assert run_detail["semester_id"] == 1
+    assert isinstance(run_detail["items"], list)
+    assert len(run_detail["items"]) >= 1

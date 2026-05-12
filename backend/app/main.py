@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from app.api.v1.endpoints.websocket import router as websocket_router
 from app.api.v1.router import api_router
 from app.core.logging import configure_logging, get_logger
 from app.core.telemetry import configure_telemetry, shutdown_telemetry
@@ -32,6 +33,7 @@ app = FastAPI(
 )
 
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(websocket_router)
 
 demo_dir = Path(__file__).resolve().parents[2] / "frontend"
 if demo_dir.exists():

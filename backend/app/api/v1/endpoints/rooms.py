@@ -1,15 +1,15 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.db.models import User
 from app.db.session import get_db
 from app.modules.auth.dependencies import require_admin
 from app.modules.courses.schemas import ErrorResponse
-from app.modules.professors.schemas import ProfessorCreate, ProfessorRead
-from app.modules.professors.service import ProfessorService
 from app.modules.rooms.schemas import (
+    ProfessorCreate,
+    ProfessorRead,
     RoomAllocationCreate,
     RoomAllocationRead,
     RoomCreate,
@@ -69,10 +69,10 @@ def allocate_rooms(
     admin: AdminUser,
     db: DbSession,
 ) -> list[RoomAllocationRead]:
-    return RoomService(db).allocate_rooms_to_section(
+    return RoomService(db).allocate_rooms(
         section_id=section_id,
-        data=payload,
-        admin_user_id=admin.id,
+        payload=payload,
+        allocated_by_user_id=admin.id,
     )
 
 
@@ -80,7 +80,7 @@ def allocate_rooms(
 
 @router.get("/professors", response_model=list[ProfessorRead])
 def list_professors(_admin: AdminUser, db: DbSession) -> list[ProfessorRead]:
-    return ProfessorService(db).list_professors()
+    return RoomService(db).list_professors()
 
 
 @router.post(
@@ -94,4 +94,4 @@ def create_professor(
     _admin: AdminUser,
     db: DbSession,
 ) -> ProfessorRead:
-    return ProfessorService(db).create_professor(payload)
+    return RoomService(db).create_professor(payload)

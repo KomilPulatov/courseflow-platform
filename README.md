@@ -25,7 +25,7 @@ Built by **team Celion**. See `docs/technical-specification.md` for the full spe
 
 - Python **3.11+**
 - [`uv`](https://docs.astral.sh/uv/getting-started/installation/) — install with `curl -LsSf https://astral.sh/uv/install.sh | sh` (or `winget install --id=astral-sh.uv` on Windows)
-- Docker Desktop (for Postgres / Redis / RabbitMQ when those services land)
+- Docker Desktop (for the full Postgres / Redis / RabbitMQ / Nginx stack)
 - Git
 
 ---
@@ -77,6 +77,13 @@ All run from `backend/` unless noted.
 | Format | `uv run ruff format .` |
 | Format check (CI-style) | `uv run ruff format --check .` |
 | Run all hooks locally | `pre-commit run --all-files` *(from repo root)* |
+
+From the repo root, the full local stack can be validated with:
+
+```bash
+docker compose config
+docker compose up -d
+```
 
 **Never run `pip install` directly** — it bypasses `uv.lock` and breaks reproducibility for the rest of the team. Always go through `uv add` / `uv sync`.
 
