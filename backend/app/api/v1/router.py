@@ -7,6 +7,7 @@ from app.api.v1.endpoints import (
     health,
     professor,
     registrations,
+    rooms,
     scheduling,
     sections,
     student_profiles,
@@ -19,6 +20,7 @@ api_router = APIRouter()
 api_router.include_router(health.router, prefix="/health", tags=["Health"])
 api_router.include_router(auth.router, prefix="/auth", tags=["Auth"])
 api_router.include_router(admin_catalog.router, prefix="/admin", tags=["Admin Setup"])
+api_router.include_router(rooms.router, prefix="/admin", tags=["Rooms"])
 api_router.include_router(scheduling.router, prefix="/admin/scheduling", tags=["Scheduling"])
 api_router.include_router(courses.router, prefix="/courses", tags=["Courses"])
 api_router.include_router(professor.router, prefix="/professor", tags=["Professor"])

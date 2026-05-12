@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.db import models
 from app.modules.scheduling import schemas
@@ -25,7 +25,9 @@ class SchedulingService:
         )
         self.db.add(run)
         self.db.flush()
-        self._generate_items(run)
+
+        self._generate_items_heuristic(run)
+
         run.status = "completed"
         run.completed_at = datetime.now(UTC)
         self.db.commit()
@@ -70,32 +72,24 @@ class SchedulingService:
         )
         approved = 0
         for item in items:
-            if item.room_id is None or item.time_slot_id is None:
+            if item.room_id is None:
                 continue
-            time_slot = self.db.get(models.TimeSlot, item.time_slot_id)
-            if time_slot is None:
-                continue
-            schedule = self.db.execute(
-                select(models.SectionSchedule).where(
-                    models.SectionSchedule.section_id == item.section_id
+            existing_alloc = self.db.execute(
+                select(models.RoomAllocation).where(
+                    models.RoomAllocation.section_id == item.section_id,
+                    models.RoomAllocation.room_id == item.room_id,
                 )
             ).scalar_one_or_none()
-            if schedule is None:
-                schedule = models.SectionSchedule(
-                    section_id=item.section_id,
-                    room_id=item.room_id,
-                    time_slot_id=item.time_slot_id,
-                    day_of_week=time_slot.day_of_week,
-                    start_time=time_slot.start_time,
-                    end_time=time_slot.end_time,
-                )
-                self.db.add(schedule)
+            if existing_alloc:
+                existing_alloc.is_preferred = True
             else:
-                schedule.room_id = item.room_id
-                schedule.time_slot_id = item.time_slot_id
-                schedule.day_of_week = time_slot.day_of_week
-                schedule.start_time = time_slot.start_time
-                schedule.end_time = time_slot.end_time
+                self.db.add(
+                    models.RoomAllocation(
+                        section_id=item.section_id,
+                        room_id=item.room_id,
+                        is_preferred=True,
+                    )
+                )
             item.status = "approved"
             approved += 1
         run.status = "approved"
@@ -105,8 +99,9 @@ class SchedulingService:
             run_id=run.id, status="approved", approved_items=approved
         )
 
-    def _generate_items(self, run: models.TimetableSuggestionRun) -> None:
-        self._ensure_default_time_slots()
+    # ── Heuristic algorithm ───────────────────────────────────────────────────
+
+    def _generate_items_heuristic(self, run: models.TimetableSuggestionRun) -> None:
         sections = list(
             self.db.execute(
                 select(models.Section)
@@ -114,63 +109,148 @@ class SchedulingService:
                     models.CourseOffering,
                     models.CourseOffering.id == models.Section.course_offering_id,
                 )
-                .where(models.CourseOffering.semester_id == run.semester_id)
-            ).scalars()
-        )
-        time_slots = list(self.db.execute(select(models.TimeSlot)).scalars())
-        for index, section in enumerate(sections):
-            room_id = self._preferred_room_id(section.id) or self._first_allocated_room_id(
-                section.id
+                .options(
+                    joinedload(models.Section.schedules),
+                    joinedload(models.Section.offering).joinedload(models.CourseOffering.course),
+                    joinedload(models.Section.room_allocations),
+                    joinedload(models.Section.room_preferences),
+                )
+                .where(
+                    models.CourseOffering.semester_id == run.semester_id,
+                    models.Section.status.in_(["open", "draft"]),
+                )
             )
-            time_slot = time_slots[index % len(time_slots)] if time_slots else None
-            score = 100 if room_id and time_slot else 25
+            .unique()
+            .scalars()
+        )
+        rooms = list(
+            self.db.execute(select(models.Room).where(models.Room.is_active.is_(True))).scalars()
+        )
+
+        booked_room_slots: dict[int, list[tuple[str, str, str]]] = {}
+        booked_professor_slots: dict[int, list[tuple[str, str, str]]] = {}
+        professor_preferences: dict[int, int] = {}
+
+        for sec in sections:
+            for pref in sec.room_preferences:
+                if pref.status == "selected":
+                    professor_preferences[sec.id] = pref.room_id
+
+        for section in sections:
+            best_room, best_score, breakdown = self._pick_best_room(
+                section=section,
+                rooms=rooms,
+                booked_room_slots=booked_room_slots,
+                booked_professor_slots=booked_professor_slots,
+                professor_preferences=professor_preferences,
+            )
+
             self.db.add(
                 models.TimetableSuggestionItem(
                     run_id=run.id,
                     section_id=section.id,
-                    room_id=room_id,
-                    time_slot_id=time_slot.id if time_slot else None,
-                    score=score,
-                    reasons={
-                        "room": "professor_preference_or_first_allocation"
-                        if room_id
-                        else "missing_room",
-                        "time": "round_robin_default_slots" if time_slot else "missing_time_slot",
-                    },
+                    room_id=best_room.id if best_room else None,
+                    time_slot_id=None,
+                    score=max(0, round(best_score * 100)) if best_score is not None else 0,
+                    reasons=breakdown,
+                    status="suggested",
                 )
             )
 
-    def _ensure_default_time_slots(self) -> None:
-        if self.db.execute(select(models.TimeSlot.id)).first() is not None:
-            return
-        for day, start, end in [
-            ("monday", "09:00", "10:20"),
-            ("monday", "10:30", "11:50"),
-            ("wednesday", "09:00", "10:20"),
-            ("wednesday", "10:30", "11:50"),
-            ("friday", "09:00", "10:20"),
-        ]:
-            self.db.add(models.TimeSlot(day_of_week=day, start_time=start, end_time=end))
+            if best_room and best_score is not None and best_score >= 0:
+                for sched in section.schedules:
+                    slot = (sched.day_of_week, sched.start_time, sched.end_time)
+                    booked_room_slots.setdefault(best_room.id, []).append(slot)
+                if section.professor_id:
+                    for sched in section.schedules:
+                        slot = (sched.day_of_week, sched.start_time, sched.end_time)
+                        booked_professor_slots.setdefault(section.professor_id, []).append(slot)
+
         self.db.flush()
 
-    def _preferred_room_id(self, section_id: int) -> int | None:
-        preference = self.db.execute(
-            select(models.ProfessorRoomPreference)
-            .where(
-                models.ProfessorRoomPreference.section_id == section_id,
-                models.ProfessorRoomPreference.status == "selected",
-            )
-            .order_by(models.ProfessorRoomPreference.preference_rank)
-        ).scalar_one_or_none()
-        return preference.room_id if preference else None
+    def _pick_best_room(
+        self,
+        section: models.Section,
+        rooms: list[models.Room],
+        booked_room_slots: dict[int, list[tuple[str, str, str]]],
+        booked_professor_slots: dict[int, list[tuple[str, str, str]]],
+        professor_preferences: dict[int, int],
+    ) -> tuple[models.Room | None, float | None, dict | None]:
+        if not section.schedules:
+            return None, None, {"reason": "no_schedule"}
 
-    def _first_allocated_room_id(self, section_id: int) -> int | None:
-        allocation = self.db.execute(
-            select(models.RoomAllocation)
-            .where(models.RoomAllocation.section_id == section_id)
-            .order_by(models.RoomAllocation.id)
-        ).scalar_one_or_none()
-        return allocation.room_id if allocation else None
+        candidate_ids = {alloc.room_id for alloc in section.room_allocations}
+        candidates = [r for r in rooms if r.id in candidate_ids] if candidate_ids else rooms
+
+        best_room: models.Room | None = None
+        best_score = float("-inf")
+        best_breakdown: dict | None = None
+
+        for room in candidates:
+            score, breakdown = self._score_room(
+                section=section,
+                room=room,
+                booked_room_slots=booked_room_slots,
+                booked_professor_slots=booked_professor_slots,
+                professor_preferences=professor_preferences,
+            )
+            if score > best_score:
+                best_score = score
+                best_room = room
+                best_breakdown = breakdown
+
+        if best_room is None:
+            return None, None, {"reason": "no_rooms_available"}
+        return best_room, best_score, best_breakdown
+
+    def _score_room(
+        self,
+        section: models.Section,
+        room: models.Room,
+        booked_room_slots: dict[int, list[tuple[str, str, str]]],
+        booked_professor_slots: dict[int, list[tuple[str, str, str]]],
+        professor_preferences: dict[int, int],
+    ) -> tuple[float, dict]:
+        breakdown: dict[str, float] = {}
+
+        if room.capacity < section.capacity:
+            capacity_fit = 0.0
+        else:
+            capacity_fit = min(section.capacity / room.capacity, 1.0)
+        breakdown["capacity_fit"] = capacity_fit
+
+        pref_match = 1.0 if professor_preferences.get(section.id) == room.id else 0.0
+        breakdown["professor_preference_match"] = pref_match
+
+        course_type = (
+            section.offering.course.course_type
+            if section.offering and section.offering.course
+            else None
+        ) or "lecture"
+        group_fit = 1.0 if room.room_type == course_type else 0.5
+        breakdown["required_course_group_fit"] = group_fit
+
+        room_penalty = 0.0
+        for sched in section.schedules:
+            slot = (sched.day_of_week, sched.start_time, sched.end_time)
+            for booked in booked_room_slots.get(room.id, []):
+                if _slots_overlap(slot, booked):
+                    room_penalty = 10.0
+                    break
+        breakdown["room_conflict_penalty"] = room_penalty
+
+        prof_penalty = 0.0
+        if section.professor_id:
+            for sched in section.schedules:
+                slot = (sched.day_of_week, sched.start_time, sched.end_time)
+                for booked in booked_professor_slots.get(section.professor_id, []):
+                    if _slots_overlap(slot, booked):
+                        prof_penalty = 10.0
+                        break
+        breakdown["professor_conflict_penalty"] = prof_penalty
+
+        total = capacity_fit + pref_match + group_fit - room_penalty - prof_penalty
+        return total, breakdown
 
     def _get_run(self, run_id: int) -> models.TimetableSuggestionRun:
         run = self.db.get(models.TimetableSuggestionRun, run_id)
@@ -180,3 +260,11 @@ class SchedulingService:
                 detail="Suggestion run not found.",
             )
         return run
+
+
+def _slots_overlap(a: tuple[str, str, str], b: tuple[str, str, str]) -> bool:
+    day_a, start_a, end_a = a
+    day_b, start_b, end_b = b
+    if day_a != day_b:
+        return False
+    return start_a < end_b and start_b < end_a
