@@ -13,6 +13,8 @@ from app.db.models import (
     Major,
     Professor,
     RegistrationPeriod,
+    Room,
+    RoomAllocation,
     Section,
     SectionSchedule,
     Semester,
@@ -233,6 +235,53 @@ def ensure_section_schedule(
         )
 
 
+def get_or_create_room(
+    db: Session,
+    *,
+    building: str,
+    room_number: str,
+    capacity: int,
+    room_type: str = "lecture",
+) -> Room:
+    room = db.query(Room).filter(Room.building == building, Room.room_number == room_number).first()
+    if room is None:
+        room = Room(
+            building=building,
+            room_number=room_number,
+            capacity=capacity,
+            room_type=room_type,
+            is_active=True,
+        )
+        db.add(room)
+        db.flush()
+    return room
+
+
+def ensure_room_allocation(
+    db: Session,
+    *,
+    section_id: int,
+    room_id: int,
+    admin_user_id: int,
+    is_preferred: bool = False,
+) -> RoomAllocation:
+    existing = (
+        db.query(RoomAllocation)
+        .filter(RoomAllocation.section_id == section_id, RoomAllocation.room_id == room_id)
+        .first()
+    )
+    if existing is None:
+        existing = RoomAllocation(
+            section_id=section_id,
+            room_id=room_id,
+            allocated_by_user_id=admin_user_id,
+            is_preferred=is_preferred,
+        )
+        db.add(existing)
+        db.flush()
+    return existing
+
+
 def ensure_registration_period(db: Session, *, semester_id: int) -> None:
     now = datetime.now(UTC)
     existing = (
@@ -261,7 +310,7 @@ def seed_demo_data() -> None:
         seed_official_curricula(db)
         admin = get_or_create_user(
             db,
-            email="admin@crsp.local",
+            email="admin@crsp.example.com",
             password="admin12345",
             role="admin",
         )
@@ -270,14 +319,14 @@ def seed_demo_data() -> None:
         cse_major = db.query(Major).filter(Major.code == "CSE").one()
         professor = get_or_create_professor(
             db,
-            email="professor@crsp.local",
+            email="professor@crsp.example.com",
             password="prof12345",
             full_name="Dr. Demo Professor",
             department_name=socie.name,
         )
         student = get_or_create_student(
             db,
-            email="student@crsp.local",
+            email="student@crsp.example.com",
             password="student12345",
             student_number="2310204",
             full_name="Demo Student",
@@ -339,13 +388,44 @@ def seed_demo_data() -> None:
             start_time="13:00",
             end_time="14:30",
         )
+
+        room_a101 = get_or_create_room(
+            db, building="A", room_number="101", capacity=40, room_type="lecture"
+        )
+        room_a102 = get_or_create_room(
+            db, building="A", room_number="102", capacity=25, room_type="lecture"
+        )
+        room_b201 = get_or_create_room(
+            db, building="B", room_number="201", capacity=35, room_type="lab"
+        )
+
+        ensure_room_allocation(
+            db,
+            section_id=section_001.id,
+            room_id=room_a101.id,
+            admin_user_id=admin.id,
+        )
+        ensure_room_allocation(
+            db,
+            section_id=section_001.id,
+            room_id=room_a102.id,
+            admin_user_id=admin.id,
+        )
+        ensure_room_allocation(
+            db,
+            section_id=section_002.id,
+            room_id=room_b201.id,
+            admin_user_id=admin.id,
+            is_preferred=True,
+        )
+
         ensure_registration_period(db, semester_id=semester.id)
 
         db.commit()
         print("Demo seed complete.")
         print(f"Admin login: {admin.email} / admin12345")
-        print("Professor login: professor@crsp.local / prof12345")
-        print("Student login: student@crsp.local / student12345")
+        print("Professor login: professor@crsp.example.com / prof12345")
+        print("Student login: student@crsp.example.com / student12345")
     except OperationalError as exc:
         raise SystemExit(
             "Database schema is missing. "
