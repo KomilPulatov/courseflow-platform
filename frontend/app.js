@@ -1,8 +1,12 @@
 const state = {
   token: localStorage.getItem("crspAdminToken") ?? "",
+  professorToken: localStorage.getItem("crspProfessorToken") ?? "",
+  studentToken: localStorage.getItem("crspStudentToken") ?? "",
 };
 
 const authState = document.querySelector("#authState");
+const professorAuthState = document.querySelector("#professorAuthState");
+const studentAuthState = document.querySelector("#studentAuthState");
 const eventLog = document.querySelector("#eventLog");
 const catalogResults = document.querySelector("#catalogResults");
 const sectionResults = document.querySelector("#sectionResults");
@@ -10,6 +14,16 @@ const sectionResults = document.querySelector("#sectionResults");
 function setAuthState() {
   authState.textContent = state.token ? "Admin token loaded" : "Signed out";
   authState.className = `badge ${state.token ? "warm" : "muted"}`;
+  professorAuthState.textContent = state.professorToken ? "Professor token loaded" : "Signed out";
+  professorAuthState.className = `badge ${state.professorToken ? "warm" : "muted"}`;
+  studentAuthState.textContent = state.studentToken ? "Student token loaded" : "Signed out";
+  studentAuthState.className = `badge ${state.studentToken ? "warm" : "muted"}`;
+}
+
+function tokenForRole(role) {
+  if (role === "professor") return state.professorToken;
+  if (role === "student") return state.studentToken;
+  return state.token;
 }
 
 function log(title, payload) {
@@ -19,15 +33,17 @@ function log(title, payload) {
 }
 
 async function request(path, options = {}) {
+  const { role, ...fetchOptions } = options;
   const headers = new Headers(options.headers ?? {});
-  if (state.token) {
-    headers.set("Authorization", `Bearer ${state.token}`);
+  const token = tokenForRole(role);
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
   if (options.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(path, { ...options, headers });
+  const response = await fetch(path, { ...fetchOptions, headers });
   const isJson = response.headers.get("content-type")?.includes("application/json");
   const data = isJson ? await response.json() : await response.text();
 
@@ -144,9 +160,13 @@ document.querySelector("#loginForm").addEventListener("submit", async (event) =>
 
 document.querySelector("#logoutButton").addEventListener("click", () => {
   state.token = "";
+  state.professorToken = "";
+  state.studentToken = "";
   localStorage.removeItem("crspAdminToken");
+  localStorage.removeItem("crspProfessorToken");
+  localStorage.removeItem("crspStudentToken");
   setAuthState();
-  log("Admin token cleared", "Token removed from browser storage.");
+  log("Tokens cleared", "Tokens removed from browser storage.");
 });
 
 document.querySelector("#clearLogButton").addEventListener("click", () => {
@@ -232,6 +252,30 @@ document.querySelector("#prerequisiteForm").addEventListener("submit", async (ev
   }
 });
 
+document.querySelector("#eligibilityRuleForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  const courseId = Number(formData.get("courseId"));
+  try {
+    const payload = {
+      min_academic_year: formData.get("minAcademicYear")
+        ? Number(formData.get("minAcademicYear"))
+        : null,
+      min_gpa: formData.get("minGpa") ? Number(formData.get("minGpa")) : null,
+      allowed_department_ids: readCsvIds(String(formData.get("departmentIds") ?? "")) || null,
+      allowed_major_ids: readCsvIds(String(formData.get("majorIds") ?? "")) || null,
+      rule_metadata: null,
+    };
+    const result = await request(`/api/v1/admin/courses/${courseId}/eligibility-rules`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    log("Created eligibility rule", result);
+  } catch (error) {
+    log("Eligibility rule failed", error.message);
+  }
+});
+
 bindJsonForm("#offeringForm", {
   path: () => "/api/v1/admin/course-offerings",
   buildPayload: (formData) => ({
@@ -255,6 +299,45 @@ bindJsonForm("#sectionForm", {
   }),
 });
 
+bindJsonForm("#professorForm", {
+  path: () => "/api/v1/admin/professors",
+  buildPayload: (formData) => ({
+    email: formData.get("email"),
+    full_name: formData.get("fullName"),
+    department_name: formData.get("departmentName") || null,
+    password: formData.get("password"),
+  }),
+});
+
+bindJsonForm("#roomForm", {
+  path: () => "/api/v1/admin/rooms",
+  buildPayload: (formData) => ({
+    building: formData.get("building") || null,
+    room_number: formData.get("roomNumber"),
+    capacity: Number(formData.get("capacity")),
+    room_type: formData.get("roomType") || "lecture",
+    is_active: true,
+  }),
+});
+
+document.querySelector("#roomAllocationForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  const sectionId = Number(formData.get("sectionId"));
+  try {
+    const result = await request(`/api/v1/admin/sections/${sectionId}/room-allocations`, {
+      method: "POST",
+      body: JSON.stringify({
+        room_ids: readCsvIds(String(formData.get("roomIds") ?? "")),
+        notes: formData.get("notes") || null,
+      }),
+    });
+    log("Allocated rooms", result);
+  } catch (error) {
+    log("Room allocation failed", error.message);
+  }
+});
+
 bindJsonForm("#periodForm", {
   path: () => "/api/v1/admin/registration-periods",
   buildPayload: (formData) => ({
@@ -263,6 +346,135 @@ bindJsonForm("#periodForm", {
     closes_at: toIsoFromLocal(String(formData.get("closesAt") ?? "")),
     status: formData.get("status"),
   }),
+});
+
+bindJsonForm("#schedulingForm", {
+  path: () => "/api/v1/admin/scheduling/suggestion-runs",
+  buildPayload: (formData) => ({
+    semester_id: Number(formData.get("semesterId")),
+    strategy: formData.get("strategy"),
+  }),
+});
+
+document.querySelector("#approveSchedulingForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  const runId = Number(formData.get("runId"));
+  try {
+    const result = await request(`/api/v1/admin/scheduling/suggestion-runs/${runId}/approve`, {
+      method: "POST",
+    });
+    log("Approved scheduling run", result);
+  } catch (error) {
+    log("Approve scheduling run failed", error.message);
+  }
+});
+
+document.querySelector("#professorLoginForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  try {
+    const result = await request("/api/v1/auth/professor/login", {
+      method: "POST",
+      body: JSON.stringify({
+        email: formData.get("email"),
+        password: formData.get("password"),
+      }),
+    });
+    state.professorToken = result.access_token;
+    localStorage.setItem("crspProfessorToken", state.professorToken);
+    setAuthState();
+    log("Professor login", result);
+  } catch (error) {
+    log("Professor login failed", error.message);
+  }
+});
+
+document.querySelector("#roomOptionsForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const sectionId = Number(new FormData(event.currentTarget).get("sectionId"));
+  try {
+    const result = await request(`/api/v1/professor/sections/${sectionId}/room-options`, {
+      role: "professor",
+    });
+    log("Loaded room options", result);
+  } catch (error) {
+    log("Room options failed", error.message);
+  }
+});
+
+document.querySelector("#roomPreferenceForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  const sectionId = Number(formData.get("sectionId"));
+  try {
+    const result = await request(`/api/v1/professor/sections/${sectionId}/room-preferences`, {
+      method: "POST",
+      role: "professor",
+      body: JSON.stringify({
+        room_id: Number(formData.get("roomId")),
+        preference_rank: Number(formData.get("preferenceRank")),
+      }),
+    });
+    log("Saved room preference", result);
+  } catch (error) {
+    log("Room preference failed", error.message);
+  }
+});
+
+document.querySelector("#manualStudentForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  try {
+    const result = await request("/api/v1/auth/student/manual-start", {
+      method: "POST",
+      body: JSON.stringify({
+        student_number: formData.get("studentNumber"),
+        full_name: formData.get("fullName"),
+        email: formData.get("email"),
+        password: formData.get("password"),
+      }),
+    });
+    state.studentToken = result.access_token;
+    localStorage.setItem("crspStudentToken", state.studentToken);
+    setAuthState();
+    log("Manual student created", result);
+  } catch (error) {
+    log("Manual student failed", error.message);
+  }
+});
+
+document.querySelector("#registerForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  try {
+    const result = await request("/api/v1/registrations", {
+      method: "POST",
+      role: "student",
+      body: JSON.stringify({
+        section_id: Number(formData.get("sectionId")),
+        idempotency_key: formData.get("idempotencyKey"),
+      }),
+    });
+    log("Registration result", result);
+  } catch (error) {
+    log("Registration failed", error.message);
+  }
+});
+
+document.querySelector("#waitlistForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const sectionId = Number(new FormData(event.currentTarget).get("sectionId"));
+  try {
+    const result = await request("/api/v1/waitlists", {
+      method: "POST",
+      role: "student",
+      body: JSON.stringify({ section_id: sectionId }),
+    });
+    log("Waitlist result", result);
+  } catch (error) {
+    log("Waitlist failed", error.message);
+  }
 });
 
 document.querySelector("#sectionLookupForm").addEventListener("submit", async (event) => {
