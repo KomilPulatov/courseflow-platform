@@ -57,6 +57,13 @@ class RegistrationRepository:
         )
         return set(self.db.execute(stmt).scalars())
 
+    def get_completed_course_ids(self, student_id: int) -> set[int]:
+        stmt = select(models.StudentCompletedCourse.course_id).where(
+            models.StudentCompletedCourse.student_id == student_id,
+            models.StudentCompletedCourse.course_id.is_not(None),
+        )
+        return {int(value) for value in self.db.execute(stmt).scalars()}
+
     def get_active_course_enrollment(
         self,
         student_id: int,

@@ -16,7 +16,7 @@ Built by **team Celion**. See `docs/technical-specification.md` for the full spe
 - **Realtime:** WebSockets (live seat updates)
 - **Gateway:** Nginx (reverse proxy + load balance across two backend replicas)
 - **Observability:** OpenTelemetry, Prometheus, Grafana, Loki/Tempo
-- **Frontend:** TBD (React/Vite)
+- **Frontend:** Static demo console served by FastAPI at `/demo`
 - **Package manager:** [`uv`](https://docs.astral.sh/uv/) (single source of truth: `backend/pyproject.toml` + `backend/uv.lock`)
 
 ---
@@ -26,7 +26,6 @@ Built by **team Celion**. See `docs/technical-specification.md` for the full spe
 - Python **3.11+**
 - [`uv`](https://docs.astral.sh/uv/getting-started/installation/) — install with `curl -LsSf https://astral.sh/uv/install.sh | sh` (or `winget install --id=astral-sh.uv` on Windows)
 - Docker Desktop (for Postgres / Redis / RabbitMQ when those services land)
-- Node 20+ (frontend, later)
 - Git
 
 ---
@@ -42,8 +41,10 @@ cp .env.example .env
 
 # 2. Backend
 cd backend
-uv sync                              # creates .venv, installs deps from uv.lock
-uv run uvicorn app.main:app --reload # http://localhost:8000/docs
+uv sync
+uv run alembic upgrade head
+uv run python -m app.db.demo_seed     # demo admin + catalog data
+uv run uvicorn app.main:app --reload  # http://localhost:8000/docs
 
 # 3. (Optional but recommended) install pre-commit hooks
 cd ..
@@ -51,7 +52,11 @@ uv tool install pre-commit
 pre-commit install
 ```
 
-Open http://localhost:8000/docs for the OpenAPI UI, http://localhost:8000/health for the health check.
+Open:
+
+- http://localhost:8000/docs for the OpenAPI UI
+- http://localhost:8000/demo for the seeded demo console
+- http://localhost:8000/health for the health check
 
 ---
 
@@ -64,6 +69,8 @@ All run from `backend/` unless noted.
 | Add a runtime dep | `uv add <pkg>` |
 | Add a dev-only dep | `uv add --dev <pkg>` |
 | Sync env to lockfile | `uv sync` |
+| Apply migrations | `uv run alembic upgrade head` |
+| Seed demo data | `uv run python -m app.db.demo_seed` |
 | Run server (reload) | `uv run uvicorn app.main:app --reload` |
 | Run tests | `uv run pytest` |
 | Lint | `uv run ruff check .` |
@@ -89,7 +96,7 @@ courseflow-platform/
 │     ├─ db/              # session, transaction helpers
 │     ├─ modules/         # auth / courses / registration / waitlist / timetable / audit
 │     └─ tests/           # unit / integration / load
-├─ frontend/              # React/Vite (TBD)
+├─ frontend/              # Static demo console mounted at /demo
 ├─ nginx/                 # reverse proxy + LB config
 ├─ postgres/              # init.sql, tuning
 ├─ docs/                  # architecture, ER diagram, BPMN, ADRs

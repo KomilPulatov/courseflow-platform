@@ -130,6 +130,9 @@ Refreshes profile from INS for INS-verified students.
 
 ## 3. Admin academic setup
 
+Implemented now:
+
+- `GET /admin/departments`
 ### POST `/admin/semesters`
 
 ### POST `/admin/departments`
@@ -138,7 +141,9 @@ Refreshes profile from INS for INS-verified students.
 
 ### POST `/admin/courses`
 
-### POST `/admin/courses/{course_id}/prerequisites`
+### PUT `/admin/courses/{course_id}/prerequisites`
+
+Replaces the full prerequisite set for the course in one transaction.
 
 ### POST `/admin/courses/{course_id}/eligibility-rules`
 
@@ -180,6 +185,15 @@ Request:
 ### POST `/admin/registration-periods`
 
 Open or configure registration period.
+
+Supporting list endpoints now available for the demo/admin console:
+
+- `GET /admin/majors?department_id=<id>`
+- `GET /admin/semesters`
+- `GET /admin/courses`
+- `GET /admin/course-offerings?semester_id=<id>`
+- `GET /admin/sections?course_id=<id>&semester_id=<id>`
+- `GET /admin/registration-periods?semester_id=<id>`
 
 ## 4. Professor flow
 
@@ -276,11 +290,18 @@ Query parameters:
 
 ### GET `/courses/{course_id}`
 
+Returns course metadata plus prerequisite course cards.
+
 ### GET `/courses/{course_id}/sections`
 
 ### GET `/sections/{section_id}`
 
 ### GET `/sections/{section_id}/availability`
+
+Current implementation note:
+
+- `eligible_only=true` currently requires the temporary `X-Student-Id` header.
+- Public catalog responses are backed by real `courses`, `course_offerings`, `sections`, and enrollment counts.
 
 ## 7. Eligibility
 
