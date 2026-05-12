@@ -37,6 +37,10 @@ class RoomService:
         self.db.commit()
         return self._professor_read(professor, user)
 
+    def list_professors(self) -> list[schemas.ProfessorRead]:
+        professors = list(self.db.execute(select(models.Professor)).scalars())
+        return [self._professor_read(p) for p in professors]
+
     def create_room(self, payload: schemas.RoomCreate) -> schemas.RoomRead:
         existing = self.db.execute(
             select(models.Room).where(
@@ -53,6 +57,10 @@ class RoomService:
         self.db.add(room)
         self.db.commit()
         return self._room_read(room)
+
+    def list_rooms(self) -> list[schemas.RoomRead]:
+        rooms = list(self.db.execute(select(models.Room)).scalars())
+        return [self._room_read(r) for r in rooms]
 
     def allocate_rooms(
         self,
@@ -94,6 +102,15 @@ class RoomService:
             rows.append(existing)
         self.db.commit()
         return [self._allocation_read(row) for row in rows]
+
+    def list_allocations(self, section_id: int) -> list[schemas.RoomAllocationRead]:
+        self._get_section(section_id)
+        allocations = list(
+            self.db.execute(
+                select(models.RoomAllocation).where(models.RoomAllocation.section_id == section_id)
+            ).scalars()
+        )
+        return [self._allocation_read(a) for a in allocations]
 
     def list_professor_sections(self, user_id: int) -> list[schemas.ProfessorSectionRead]:
         professor = self._get_professor_by_user(user_id)
@@ -186,6 +203,8 @@ class RoomService:
             room_id=payload.room_id,
             preference_rank=payload.preference_rank,
         )
+
+    # ── helpers ───────────────────────────────────────────────────────────────
 
     def _get_section(self, section_id: int) -> models.Section:
         section = self.db.get(models.Section, section_id)

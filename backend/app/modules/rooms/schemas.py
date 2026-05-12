@@ -30,6 +30,8 @@ class ProfessorRead(BaseModel):
     full_name: str
     department_name: str | None
 
+    model_config = {"from_attributes": True}
+
 
 class RoomCreate(BaseModel):
     building: str | None = Field(default=None, max_length=80)
@@ -54,6 +56,8 @@ class RoomRead(BaseModel):
     capacity: int
     room_type: str
     is_active: bool
+
+    model_config = {"from_attributes": True}
 
 
 class RoomAllocationCreate(BaseModel):

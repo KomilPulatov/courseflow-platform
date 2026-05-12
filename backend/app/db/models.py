@@ -46,6 +46,8 @@ class Professor(Base):
     department_name: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
+    sections: Mapped[list["Section"]] = relationship("Section", viewonly=True)
+
 
 class Student(Base):
     __tablename__ = "students"
@@ -308,6 +310,9 @@ class CourseOffering(Base):
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
+    course: Mapped["Course"] = relationship("Course")
+    semester: Mapped["Semester"] = relationship("Semester")
+
     __table_args__ = (
         UniqueConstraint("course_id", "semester_id", name="uq_course_offering_course_semester"),
         CheckConstraint(
@@ -338,6 +343,11 @@ class Section(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     offering: Mapped[CourseOffering] = relationship()
+    schedules: Mapped[list["SectionSchedule"]] = relationship("SectionSchedule")
+    room_allocations: Mapped[list["RoomAllocation"]] = relationship("RoomAllocation")
+    room_preferences: Mapped[list["ProfessorRoomPreference"]] = relationship(
+        "ProfessorRoomPreference",
+    )
 
     __table_args__ = (
         UniqueConstraint("course_offering_id", "section_code", name="uq_section_offering_code"),
@@ -393,6 +403,8 @@ class RoomAllocation(Base):
     notes: Mapped[str | None] = mapped_column(Text)
     is_preferred: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    room: Mapped[Room] = relationship()
 
     __table_args__ = (
         UniqueConstraint("section_id", "room_id", name="uq_room_allocation_section_room"),
