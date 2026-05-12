@@ -27,6 +27,8 @@ app = FastAPI(
     description="Course Registration and Scheduling Platform",
     version="0.1.0",
     lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
 app.include_router(api_router, prefix="/api/v1")
@@ -36,6 +38,6 @@ if demo_dir.exists():
     app.mount("/demo", StaticFiles(directory=demo_dir, html=True), name="demo")
 
 
-@app.get("/health")
+@app.get("/health", tags=["Health"])
 def health_check():
     return {"status": "ok"}

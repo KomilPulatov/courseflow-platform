@@ -11,11 +11,7 @@ def test_official_curricula_seed_creates_programs_and_shared_course_mappings(
     seed_official_curricula(db_session)
     db_session.commit()
 
-    rows = (
-        db_session.query(AcademicProgram.code)
-        .order_by(AcademicProgram.code)
-        .all()
-    )
+    rows = db_session.query(AcademicProgram.code).order_by(AcademicProgram.code).all()
     program_codes = {code for (code,) in rows}
     assert program_codes == {"BA", "CSE", "ICE", "SBL"}
 
