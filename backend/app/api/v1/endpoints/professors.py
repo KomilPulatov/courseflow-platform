@@ -45,7 +45,7 @@ def get_room_options(
     try:
         return ProfessorService(db).get_room_options(professor.id, section_id)
     except SectionNotAssignedError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=e.message)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=e.message) from e
 
 
 @router.post(
@@ -66,10 +66,10 @@ def save_room_preference(
     try:
         return ProfessorService(db).save_room_preference(professor.id, section_id, payload)
     except SectionNotAssignedError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=e.message)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=e.message) from e
     except RoomNotInPoolError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message) from e
     except RoomCapacityError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message) from e
     except RoomConflictError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message) from e
