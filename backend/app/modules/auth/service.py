@@ -7,7 +7,6 @@ from datetime import UTC, datetime
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.models import (
     ExternalAccount,
@@ -16,7 +15,6 @@ from app.db.models import (
     StudentCompletedCourse,
     User,
 )
-from app.integrations.ins_client import verify_ins_credentials
 from app.modules.auth.schemas import (
     INSLoginResponse,
     ManualStartResponse,
@@ -42,99 +40,7 @@ def login_professor(db: Session, email: str, password: str) -> TokenResponse:
 
 
 def login_student_ins(db: Session, student_number: str, password: str) -> INSLoginResponse:
-    if settings.INS_MOCK_ENABLED:
-        return _login_student_mock_ins(db, student_number, password)
     return _login_student_scraped_ins(db, student_number, password)
-
-
-def _login_student_mock_ins(db: Session, student_number: str, password: str) -> INSLoginResponse:
-    ins_data = verify_ins_credentials(student_number, password)
-    if ins_data is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid INS credentials. Check your student number and password.",
-        )
-
-    student = db.query(Student).filter(Student.student_number == student_number).first()
-    if student is None:
-        user = User(role="student")
-        db.add(user)
-        db.flush()
-
-        student = Student(
-            user_id=user.id,
-            student_number=ins_data.student_number,
-            full_name=ins_data.full_name,
-            profile_source="ins_verified",
-        )
-        db.add(student)
-        db.flush()
-    else:
-        student.full_name = ins_data.full_name
-        student.profile_source = "ins_verified"
-        user = db.query(User).filter(User.id == student.user_id).first()
-        if user is None:
-            user = User(role="student")
-            db.add(user)
-            db.flush()
-            student.user_id = user.id
-
-    profile = (
-        db.query(StudentAcademicProfile)
-        .filter(StudentAcademicProfile.student_id == student.id)
-        .first()
-    )
-    now = datetime.now(UTC)
-    if profile is None:
-        profile = StudentAcademicProfile(
-            student_id=student.id,
-            department_name=ins_data.department,
-            major_name=ins_data.major,
-            academic_year=ins_data.academic_year,
-            current_gpa=ins_data.current_gpa,
-            gpa_is_verified=True,
-            academic_status=ins_data.academic_status,
-            last_synced_at=now,
-        )
-        db.add(profile)
-    else:
-        profile.department_name = ins_data.department
-        profile.major_name = ins_data.major
-        profile.academic_year = ins_data.academic_year
-        profile.current_gpa = ins_data.current_gpa
-        profile.gpa_is_verified = True
-        profile.academic_status = ins_data.academic_status
-        profile.last_synced_at = now
-
-    db.flush()
-    db.query(StudentCompletedCourse).filter(
-        StudentCompletedCourse.student_id == student.id,
-        StudentCompletedCourse.source == "ins_verified",
-    ).delete()
-    for course in ins_data.completed_courses:
-        db.add(
-            StudentCompletedCourse(
-                student_id=student.id,
-                course_code=course.code,
-                course_title=course.title,
-                grade=course.grade,
-                credits=course.credits,
-                source="ins_verified",
-            )
-        )
-
-    _upsert_external_account(db, student, student_number, now)
-    db.commit()
-
-    token = create_access_token(user.id, "student")
-    return INSLoginResponse(
-        access_token=token,
-        student_number=ins_data.student_number,
-        full_name=ins_data.full_name,
-        department=ins_data.department,
-        major=ins_data.major,
-        current_gpa=ins_data.current_gpa,
-    )
 
 
 def _login_student_scraped_ins(db: Session, student_number: str, password: str) -> INSLoginResponse:
