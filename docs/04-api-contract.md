@@ -130,9 +130,6 @@ Refreshes profile from INS for INS-verified students.
 
 ## 3. Admin academic setup
 
-Implemented now:
-
-- `GET /admin/departments`
 ### POST `/admin/semesters`
 
 ### POST `/admin/departments`
@@ -299,8 +296,7 @@ Returns course metadata plus prerequisite course cards.
 ### GET `/sections/{section_id}/availability`
 
 Current implementation note:
-
-- `eligible_only=true` currently requires the temporary `X-Student-Id` header.
+- `eligible_only=true` requires a student JWT bearer token.
 - Public catalog responses are backed by real `courses`, `course_offerings`, `sections`, and enrollment counts.
 
 ## 7. Eligibility
@@ -309,8 +305,7 @@ Current implementation note:
 
 Returns eligibility for current student.
 
-Current implementation note: until the auth slice lands, student identity is provided by
-the temporary `X-Student-Id` request header.
+Student identity is provided by a student JWT bearer token.
 
 Response:
 
@@ -344,11 +339,7 @@ Response:
 
 ### POST `/registrations`
 
-Current implementation note: until JWT auth is implemented, pass the current student as:
-
-```text
-X-Student-Id: 1
-```
+Student identity is provided by a student JWT bearer token.
 
 Request:
 
