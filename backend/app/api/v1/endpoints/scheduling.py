@@ -10,7 +10,6 @@ from app.modules.scheduling.schemas import (
     SuggestionApproveResponse,
     SuggestionRunCreate,
     SuggestionRunRead,
-    SuggestionRunStartResponse,
 )
 from app.modules.scheduling.service import SchedulingService
 
