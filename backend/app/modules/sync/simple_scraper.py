@@ -40,7 +40,6 @@ def _extract_profile_from_xml(
 
 
 def run_sync_simple(db: Session, user_id: str, username: str, password: str) -> None:
-    """Simple scraper for ins.inha.uz that logs in, reads grades, and updates the DB."""
     base_url = settings.PORTAL_BASE_URL.rstrip("/")
     login_url = base_url + settings.PORTAL_LOGIN_PATH
     grades_url = base_url + settings.PORTAL_GRADES_PATH
@@ -61,7 +60,7 @@ def run_sync_simple(db: Session, user_id: str, username: str, password: str) -> 
             raise Exception("Login form not found.")
 
         action = form.attributes.get("action") or settings.PORTAL_LOGIN_PATH
-        login_post_url = urljoin(base_url + "/", action)
+        login_post_url = urljoin(login_url, action)
 
         login_data: dict[str, str] = {}
         username_field = None

@@ -14,13 +14,10 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = "crsp"
     POSTGRES_PASSWORD: str = "crsp"
 
-    # INS Integration
-    INS_MOCK_ENABLED: bool = True
-
     # INS Portal scraper
     PORTAL_BASE_URL: str = "https://ins.inha.uz"
-    PORTAL_LOGIN_PATH: str = "/Account/Login"
-    PORTAL_GRADES_PATH: str = "/StuAca/ViewGradeStandings"
+    PORTAL_LOGIN_PATH: str = "/ITIS/Start.aspx"
+    PORTAL_GRADES_PATH: str = "/cabsoft_inha/ExportExe/pdfS.asp"
     PORTAL_USER_AGENT: str = (
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"

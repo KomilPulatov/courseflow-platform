@@ -62,7 +62,39 @@ def test_manual_student_start_rejects_duplicate_student_number(
     assert response.json()["detail"] == "A student with this student number already exists."
 
 
-def test_mock_ins_login_syncs_verified_profile(client, db_session: Session) -> None:
+def test_ins_login_syncs_verified_profile(client, db_session: Session, monkeypatch) -> None:
+    def fake_run_sync_simple(db: Session, user_id: str, username: str, password: str) -> None:
+        student = db.query(Student).filter(Student.user_id == int(user_id)).one()
+        student.full_name = f"INS Student {username}"
+
+        profile = (
+            db.query(StudentAcademicProfile)
+            .filter(StudentAcademicProfile.student_id == student.id)
+            .first()
+        )
+        if profile is None:
+            profile = StudentAcademicProfile(
+                student_id=student.id,
+                department_name="ICE",
+                major_name="Information and Computer Engineering",
+                academic_year=3,
+                current_gpa=4.2,
+                gpa_is_verified=True,
+                academic_status="active",
+            )
+            db.add(profile)
+        else:
+            profile.department_name = "ICE"
+            profile.major_name = "Information and Computer Engineering"
+            profile.academic_year = 3
+            profile.current_gpa = 4.2
+            profile.gpa_is_verified = True
+            profile.academic_status = "active"
+
+        db.flush()
+
+    monkeypatch.setattr("app.modules.auth.service.run_sync_simple", fake_run_sync_simple)
+
     response = client.post(
         "/api/v1/auth/student/ins-login",
         json={"student_number": "U2310037", "password": "U2310037"},
@@ -85,7 +117,12 @@ def test_mock_ins_login_syncs_verified_profile(client, db_session: Session) -> N
     assert external_account.provider == "ins"
 
 
-def test_mock_ins_login_rejects_invalid_password(client) -> None:
+def test_ins_login_rejects_invalid_password(client, monkeypatch) -> None:
+    def fake_run_sync_simple(db: Session, user_id: str, username: str, password: str) -> None:
+        raise Exception("Login failed.")
+
+    monkeypatch.setattr("app.modules.auth.service.run_sync_simple", fake_run_sync_simple)
+
     response = client.post(
         "/api/v1/auth/student/ins-login",
         json={"student_number": "U2310037", "password": "wrong"},
