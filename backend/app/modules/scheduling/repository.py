@@ -85,8 +85,9 @@ class SchedulingRepository:
         stmt = (
             select(TimetableSuggestionRun)
             .options(
-                joinedload(TimetableSuggestionRun.items)
-                .joinedload(TimetableSuggestionItem.suggested_room),
+                joinedload(TimetableSuggestionRun.items).joinedload(
+                    TimetableSuggestionItem.suggested_room
+                ),
                 joinedload(TimetableSuggestionRun.items)
                 .joinedload(TimetableSuggestionItem.section)
                 .joinedload(Section.offering)

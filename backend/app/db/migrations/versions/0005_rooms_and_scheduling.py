@@ -54,9 +54,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["room_id"], ["rooms.id"]),
         sa.ForeignKeyConstraint(["section_id"], ["sections.id"]),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "section_id", "professor_id", name="uq_prof_pref_section_professor"
-        ),
+        sa.UniqueConstraint("section_id", "professor_id", name="uq_prof_pref_section_professor"),
     )
     op.create_table(
         "timetable_suggestion_runs",
@@ -86,15 +84,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["suggested_room_id"], ["rooms.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        "idx_room_allocations_section", "room_allocations", ["section_id"]
-    )
-    op.create_index(
-        "idx_prof_room_pref_section", "professor_room_preferences", ["section_id"]
-    )
-    op.create_index(
-        "idx_suggestion_runs_semester", "timetable_suggestion_runs", ["semester_id"]
-    )
+    op.create_index("idx_room_allocations_section", "room_allocations", ["section_id"])
+    op.create_index("idx_prof_room_pref_section", "professor_room_preferences", ["section_id"])
+    op.create_index("idx_suggestion_runs_semester", "timetable_suggestion_runs", ["semester_id"])
 
 
 def downgrade() -> None:

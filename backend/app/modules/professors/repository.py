@@ -36,9 +36,7 @@ class ProfessorRepository:
         )
         return self.db.scalars(stmt).unique().all()
 
-    def get_section_for_professor(
-        self, section_id: int, professor_id: int
-    ) -> Section | None:
+    def get_section_for_professor(self, section_id: int, professor_id: int) -> Section | None:
         stmt = (
             select(Section)
             .options(joinedload(Section.schedules))
