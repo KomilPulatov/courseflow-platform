@@ -4,13 +4,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import (
-    Course,
     CourseOffering,
     Professor,
     ProfessorRoomPreference,
     Section,
     SectionSchedule,
-    Semester,
 )
 
 
