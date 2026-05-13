@@ -338,6 +338,7 @@ class Section(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     offering: Mapped[CourseOffering] = relationship()
+    schedules: Mapped[list["SectionSchedule"]] = relationship()
 
     __table_args__ = (
         UniqueConstraint("course_offering_id", "section_code", name="uq_section_offering_code"),

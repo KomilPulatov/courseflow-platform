@@ -21,14 +21,14 @@ AdminUser = Annotated[User, Depends(require_admin)]
 
 @router.post(
     "/suggestion-runs",
-    response_model=SuggestionRunStartResponse,
+    response_model=SuggestionRunRead,
     status_code=status.HTTP_201_CREATED,
 )
 def create_suggestion_run(
     payload: SuggestionRunCreate,
     current_user: AdminUser,
     db: DbSession,
-) -> SuggestionRunStartResponse:
+) -> SuggestionRunRead:
     return SchedulingService(db).create_run(payload, requested_by_user_id=current_user.id)
 
 

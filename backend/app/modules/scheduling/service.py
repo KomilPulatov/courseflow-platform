@@ -14,7 +14,7 @@ class SchedulingService:
 
     def create_run(
         self, payload: schemas.SuggestionRunCreate, requested_by_user_id: int
-    ) -> schemas.SuggestionRunStartResponse:
+    ) -> schemas.SuggestionRunRead:
         if self.db.get(models.Semester, payload.semester_id) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Semester not found.")
         run = models.TimetableSuggestionRun(
@@ -29,7 +29,7 @@ class SchedulingService:
         run.status = "completed"
         run.completed_at = datetime.now(UTC)
         self.db.commit()
-        return schemas.SuggestionRunStartResponse(run_id=run.id, status=run.status)
+        return self.get_run(run.id)
 
     def get_run(self, run_id: int) -> schemas.SuggestionRunRead:
         run = self._get_run(run_id)
