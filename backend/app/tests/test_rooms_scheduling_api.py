@@ -73,7 +73,7 @@ def test_admin_professor_room_allocation_and_scheduling(client, db_session: Sess
         json={"semester_id": 1, "strategy": "balanced_heuristic"},
     )
     assert run_response.status_code == 201
-    run_id = run_response.json()["run_id"]
+    run_id = run_response.json()["id"]
 
     detail_response = client.get(
         f"/api/v1/admin/scheduling/suggestion-runs/{run_id}", headers=headers
