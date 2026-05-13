@@ -30,6 +30,7 @@ class Settings(BaseSettings):
 
     # Redis (ARQ worker queue + per-user sync lock)
     REDIS_URL: str = "redis://localhost:6379/0"
+    RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672//"
 
     # Snapshot storage (raw HTML bytes saved before parsing)
     SNAPSHOT_DIR: str = "./snapshots"

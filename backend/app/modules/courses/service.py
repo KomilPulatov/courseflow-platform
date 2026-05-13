@@ -199,6 +199,32 @@ class CourseCatalogService:
             for prerequisite in prerequisite_courses
         ]
 
+    def create_eligibility_rule(
+        self,
+        course_id: int,
+        payload: schemas.CourseEligibilityRuleCreate,
+    ) -> schemas.CourseEligibilityRuleRead:
+        if self.repo.get_course(course_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+        rule = self.repo.create_course_rule(course_id=course_id, **payload.model_dump())
+        self.repo.create_audit_log(
+            actor_student_id=None,
+            event_type="admin_eligibility_rule_created",
+            entity_type="course",
+            entity_id=course_id,
+            payload=payload.model_dump(),
+        )
+        self.db.commit()
+        return schemas.CourseEligibilityRuleRead(
+            id=rule.id,
+            course_id=rule.course_id,
+            min_academic_year=rule.min_academic_year,
+            min_gpa=float(rule.min_gpa) if rule.min_gpa is not None else None,
+            allowed_department_ids=rule.allowed_department_ids,
+            allowed_major_ids=rule.allowed_major_ids,
+            rule_metadata=rule.rule_metadata,
+        )
+
     def list_course_offerings(
         self, *, semester_id: int | None = None
     ) -> list[schemas.CourseOfferingRead]:

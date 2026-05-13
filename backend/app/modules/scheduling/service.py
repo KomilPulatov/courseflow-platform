@@ -1,250 +1,182 @@
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Room, RoomAllocation, Section, TimetableSuggestionRun
-from app.modules.rooms.repository import RoomRepository
-from app.modules.scheduling.repository import SchedulingRepository
-from app.modules.scheduling.schemas import SuggestionItemRead, SuggestionRunRead
-from app.modules.rooms.schemas import RoomRead
+from app.db import models
+from app.modules.scheduling import schemas
 
 
 class SchedulingService:
     def __init__(self, db: Session) -> None:
         self.db = db
-        self.repo = SchedulingRepository(db)
-        self.room_repo = RoomRepository(db)
 
-    def create_suggestion_run(
-        self,
-        semester_id: int,
-        strategy: str,
-        admin_user_id: int,
-    ) -> SuggestionRunRead:
-        semester = self.repo.get_semester(semester_id)
-        if not semester:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Semester not found."
-            )
-
-        run = self.repo.create_run(
-            semester_id=semester_id,
-            strategy=strategy,
-            created_by_user_id=admin_user_id,
+    def create_run(
+        self, payload: schemas.SuggestionRunCreate, requested_by_user_id: int
+    ) -> schemas.SuggestionRunStartResponse:
+        if self.db.get(models.Semester, payload.semester_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Semester not found.")
+        run = models.TimetableSuggestionRun(
+            semester_id=payload.semester_id,
+            strategy=payload.strategy,
+            status="running",
+            requested_by_user_id=requested_by_user_id,
         )
-
-        sections = self.repo.list_open_sections_for_semester(semester_id)
-        rooms = list(self.repo.list_active_rooms())
-
-        booked_room_slots: dict[int, list[tuple[str, str, str]]] = {}
-        booked_professor_slots: dict[int, list[tuple[str, str, str]]] = {}
-        professor_preferences: dict[int, int] = {}
-
-        for sec in sections:
-            for pref in sec.room_preferences:
-                if pref.status == "selected":
-                    professor_preferences[sec.id] = pref.room_id
-
-        items = []
-        for section in sections:
-            best_room, best_score, best_breakdown = self._pick_best_room(
-                section=section,
-                rooms=rooms,
-                booked_room_slots=booked_room_slots,
-                booked_professor_slots=booked_professor_slots,
-                professor_preferences=professor_preferences,
-            )
-
-            item = self.repo.create_item(
-                run_id=run.id,
-                section_id=section.id,
-                suggested_room_id=best_room.id if best_room else None,
-                score=best_score,
-                breakdown=best_breakdown,
-            )
-            items.append((item, section, best_room))
-
-            if best_room and best_score is not None and best_score >= 0:
-                for sched in section.schedules:
-                    slot = (sched.day_of_week, sched.start_time, sched.end_time)
-                    booked_room_slots.setdefault(best_room.id, []).append(slot)
-                if section.professor_id:
-                    for sched in section.schedules:
-                        slot = (sched.day_of_week, sched.start_time, sched.end_time)
-                        booked_professor_slots.setdefault(section.professor_id, []).append(slot)
-
+        self.db.add(run)
+        self.db.flush()
+        self._generate_items(run)
         run.status = "completed"
         run.completed_at = datetime.now(UTC)
         self.db.commit()
+        return schemas.SuggestionRunStartResponse(run_id=run.id, status=run.status)
 
-        return self._build_run_read(run, items)
-
-    def get_run(self, run_id: int) -> SuggestionRunRead:
-        run = self.repo.get_run(run_id)
-        if not run:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Suggestion run not found."
-            )
-        items_with_data = [
-            (item, item.section, item.suggested_room) for item in run.items
-        ]
-        return self._build_run_read(run, items_with_data)
-
-    def approve_run(self, run_id: int, admin_user_id: int) -> SuggestionRunRead:
-        run = self.repo.get_run(run_id)
-        if not run:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Suggestion run not found."
-            )
-
-        raw_items = self.repo.list_items_for_run(run_id)
-        for item in raw_items:
-            item.approved = True
-            if item.suggested_room_id is not None:
-                existing = self.room_repo.get_allocation(item.section_id, item.suggested_room_id)
-                if existing:
-                    existing.is_preferred = True
-                else:
-                    self.room_repo.create_allocation(
-                        section_id=item.section_id,
-                        room_id=item.suggested_room_id,
-                        user_id=admin_user_id,
-                        is_preferred=True,
-                    )
-
-        self.db.commit()
-
-        self.db.refresh(run)
-        raw_items_refreshed = self.repo.list_items_for_run(run_id)
-        items_with_data = [
-            (item, item.section, item.suggested_room) for item in raw_items_refreshed
-        ]
-        return self._build_run_read(run, items_with_data)
-
-    # ── Scoring algorithm ─────────────────────────────────────────────────────
-
-    def _pick_best_room(
-        self,
-        section: Section,
-        rooms: list[Room],
-        booked_room_slots: dict[int, list[tuple[str, str, str]]],
-        booked_professor_slots: dict[int, list[tuple[str, str, str]]],
-        professor_preferences: dict[int, int],
-    ) -> tuple[Room | None, float | None, dict | None]:
-        if not section.schedules:
-            return None, None, {"reason": "no_schedule"}
-
-        candidate_room_ids: set[int] = set()
-        for alloc in section.room_allocations:
-            candidate_room_ids.add(alloc.room_id)
-
-        candidates = [r for r in rooms if r.id in candidate_room_ids] if candidate_room_ids else rooms
-
-        best_room: Room | None = None
-        best_score = float("-inf")
-        best_breakdown: dict | None = None
-
-        for room in candidates:
-            score, breakdown = self._score_room_for_section(
-                section=section,
-                room=room,
-                booked_room_slots=booked_room_slots,
-                booked_professor_slots=booked_professor_slots,
-                professor_preferences=professor_preferences,
-            )
-            if score > best_score:
-                best_score = score
-                best_room = room
-                best_breakdown = breakdown
-
-        if best_room is None:
-            return None, None, {"reason": "no_rooms_available"}
-        return best_room, best_score, best_breakdown
-
-    def _score_room_for_section(
-        self,
-        section: Section,
-        room: Room,
-        booked_room_slots: dict[int, list[tuple[str, str, str]]],
-        booked_professor_slots: dict[int, list[tuple[str, str, str]]],
-        professor_preferences: dict[int, int],
-    ) -> tuple[float, dict]:
-        breakdown: dict[str, float] = {}
-
-        if room.capacity < section.capacity:
-            capacity_fit = 0.0
-        else:
-            capacity_fit = min(section.capacity / room.capacity, 1.0)
-        breakdown["capacity_fit"] = capacity_fit
-
-        pref_match = 1.0 if professor_preferences.get(section.id) == room.id else 0.0
-        breakdown["professor_preference_match"] = pref_match
-
-        course_type = section.offering.course.course_type or "lecture"
-        group_fit = 1.0 if room.room_type == course_type else 0.5
-        breakdown["required_course_group_fit"] = group_fit
-
-        room_penalty = 0.0
-        for sched in section.schedules:
-            slot = (sched.day_of_week, sched.start_time, sched.end_time)
-            for booked in booked_room_slots.get(room.id, []):
-                if _slots_overlap(slot, booked):
-                    room_penalty = 10.0
-                    break
-        breakdown["room_conflict_penalty"] = room_penalty
-
-        prof_penalty = 0.0
-        if section.professor_id:
-            for sched in section.schedules:
-                slot = (sched.day_of_week, sched.start_time, sched.end_time)
-                for booked in booked_professor_slots.get(section.professor_id, []):
-                    if _slots_overlap(slot, booked):
-                        prof_penalty = 10.0
-                        break
-        breakdown["professor_conflict_penalty"] = prof_penalty
-
-        total = capacity_fit + pref_match + group_fit - room_penalty - prof_penalty
-        return total, breakdown
-
-    # ── Response builder ──────────────────────────────────────────────────────
-
-    def _build_run_read(
-        self,
-        run: TimetableSuggestionRun,
-        items_with_data: list[tuple],
-    ) -> SuggestionRunRead:
-        item_reads = []
-        for item, section, room in items_with_data:
-            item_reads.append(
-                SuggestionItemRead(
-                    section_id=section.id if section else item.section_id,
-                    section_code=section.section_code if section else "",
-                    course_title=(
-                        section.offering.course.title
-                        if section and section.offering and section.offering.course
-                        else ""
-                    ),
-                    suggested_room=RoomRead.model_validate(room) if room else None,
-                    score=float(item.score) if item.score is not None else None,
-                    breakdown=item.breakdown,
-                    approved=item.approved,
+    def get_run(self, run_id: int) -> schemas.SuggestionRunRead:
+        run = self._get_run(run_id)
+        items = list(
+            self.db.execute(
+                select(models.TimetableSuggestionItem).where(
+                    models.TimetableSuggestionItem.run_id == run_id
                 )
-            )
-        return SuggestionRunRead(
-            run_id=run.id,
-            status=run.status,
+            ).scalars()
+        )
+        return schemas.SuggestionRunRead(
+            id=run.id,
             semester_id=run.semester_id,
             strategy=run.strategy,
-            created_at=run.created_at,
-            completed_at=run.completed_at,
-            items=item_reads,
+            status=run.status,
+            items=[
+                schemas.SuggestionItemRead(
+                    id=item.id,
+                    section_id=item.section_id,
+                    room_id=item.room_id,
+                    time_slot_id=item.time_slot_id,
+                    score=item.score,
+                    reasons=item.reasons,
+                    status=item.status,
+                )
+                for item in items
+            ],
         )
 
+    def approve_run(self, run_id: int) -> schemas.SuggestionApproveResponse:
+        run = self._get_run(run_id)
+        items = list(
+            self.db.execute(
+                select(models.TimetableSuggestionItem).where(
+                    models.TimetableSuggestionItem.run_id == run_id
+                )
+            ).scalars()
+        )
+        approved = 0
+        for item in items:
+            if item.room_id is None or item.time_slot_id is None:
+                continue
+            time_slot = self.db.get(models.TimeSlot, item.time_slot_id)
+            if time_slot is None:
+                continue
+            schedule = self.db.execute(
+                select(models.SectionSchedule).where(
+                    models.SectionSchedule.section_id == item.section_id
+                )
+            ).scalar_one_or_none()
+            if schedule is None:
+                schedule = models.SectionSchedule(
+                    section_id=item.section_id,
+                    room_id=item.room_id,
+                    time_slot_id=item.time_slot_id,
+                    day_of_week=time_slot.day_of_week,
+                    start_time=time_slot.start_time,
+                    end_time=time_slot.end_time,
+                )
+                self.db.add(schedule)
+            else:
+                schedule.room_id = item.room_id
+                schedule.time_slot_id = item.time_slot_id
+                schedule.day_of_week = time_slot.day_of_week
+                schedule.start_time = time_slot.start_time
+                schedule.end_time = time_slot.end_time
+            item.status = "approved"
+            approved += 1
+        run.status = "approved"
+        run.approved_at = datetime.now(UTC)
+        self.db.commit()
+        return schemas.SuggestionApproveResponse(
+            run_id=run.id, status="approved", approved_items=approved
+        )
 
-def _slots_overlap(a: tuple[str, str, str], b: tuple[str, str, str]) -> bool:
-    day_a, start_a, end_a = a
-    day_b, start_b, end_b = b
-    if day_a != day_b:
-        return False
-    return start_a < end_b and start_b < end_a
+    def _generate_items(self, run: models.TimetableSuggestionRun) -> None:
+        self._ensure_default_time_slots()
+        sections = list(
+            self.db.execute(
+                select(models.Section)
+                .join(
+                    models.CourseOffering,
+                    models.CourseOffering.id == models.Section.course_offering_id,
+                )
+                .where(models.CourseOffering.semester_id == run.semester_id)
+            ).scalars()
+        )
+        time_slots = list(self.db.execute(select(models.TimeSlot)).scalars())
+        for index, section in enumerate(sections):
+            room_id = self._preferred_room_id(section.id) or self._first_allocated_room_id(
+                section.id
+            )
+            time_slot = time_slots[index % len(time_slots)] if time_slots else None
+            score = 100 if room_id and time_slot else 25
+            self.db.add(
+                models.TimetableSuggestionItem(
+                    run_id=run.id,
+                    section_id=section.id,
+                    room_id=room_id,
+                    time_slot_id=time_slot.id if time_slot else None,
+                    score=score,
+                    reasons={
+                        "room": "professor_preference_or_first_allocation"
+                        if room_id
+                        else "missing_room",
+                        "time": "round_robin_default_slots" if time_slot else "missing_time_slot",
+                    },
+                )
+            )
+
+    def _ensure_default_time_slots(self) -> None:
+        if self.db.execute(select(models.TimeSlot.id)).first() is not None:
+            return
+        for day, start, end in [
+            ("monday", "09:00", "10:20"),
+            ("monday", "10:30", "11:50"),
+            ("wednesday", "09:00", "10:20"),
+            ("wednesday", "10:30", "11:50"),
+            ("friday", "09:00", "10:20"),
+        ]:
+            self.db.add(models.TimeSlot(day_of_week=day, start_time=start, end_time=end))
+        self.db.flush()
+
+    def _preferred_room_id(self, section_id: int) -> int | None:
+        preference = self.db.execute(
+            select(models.ProfessorRoomPreference)
+            .where(
+                models.ProfessorRoomPreference.section_id == section_id,
+                models.ProfessorRoomPreference.status == "selected",
+            )
+            .order_by(models.ProfessorRoomPreference.preference_rank)
+        ).scalar_one_or_none()
+        return preference.room_id if preference else None
+
+    def _first_allocated_room_id(self, section_id: int) -> int | None:
+        allocation = self.db.execute(
+            select(models.RoomAllocation)
+            .where(models.RoomAllocation.section_id == section_id)
+            .order_by(models.RoomAllocation.id)
+        ).scalar_one_or_none()
+        return allocation.room_id if allocation else None
+
+    def _get_run(self, run_id: int) -> models.TimetableSuggestionRun:
+        run = self.db.get(models.TimetableSuggestionRun, run_id)
+        if run is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Suggestion run not found.",
+            )
+        return run
