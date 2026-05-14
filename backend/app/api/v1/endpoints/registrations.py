@@ -2,10 +2,12 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_student_id
-from app.db.session import get_db
+from app.api.deps import (
+    get_current_student_id,
+    get_rate_limited_current_student_id,
+    get_registration_service,
+)
 from app.modules.registration.errors import RegistrationError
 from app.modules.registration.schemas import (
     EnrolledResponse,
@@ -39,11 +41,11 @@ def registration_error_response(exc: RegistrationError) -> JSONResponse:
 )
 def create_registration(
     payload: RegistrationCreate,
-    student_id: Annotated[int, Depends(get_current_student_id)],
-    db: Annotated[Session, Depends(get_db)],
+    student_id: Annotated[int, Depends(get_rate_limited_current_student_id)],
+    service: Annotated[RegistrationService, Depends(get_registration_service)],
 ) -> dict[str, Any] | JSONResponse:
     try:
-        return RegistrationService(db).register(student_id, payload)
+        return service.register(student_id, payload)
     except RegistrationError as exc:
         return registration_error_response(exc)
 
@@ -60,10 +62,10 @@ def create_registration(
 def delete_registration(
     enrollment_id: int,
     student_id: Annotated[int, Depends(get_current_student_id)],
-    db: Annotated[Session, Depends(get_db)],
+    service: Annotated[RegistrationService, Depends(get_registration_service)],
 ) -> dict[str, str | int] | JSONResponse:
     try:
-        return RegistrationService(db).drop(student_id, enrollment_id)
+        return service.drop(student_id, enrollment_id)
     except RegistrationError as exc:
         return registration_error_response(exc)
 
@@ -71,14 +73,14 @@ def delete_registration(
 @router.get("/me", response_model=list[RegistrationListItem])
 def list_my_registrations(
     student_id: Annotated[int, Depends(get_current_student_id)],
-    db: Annotated[Session, Depends(get_db)],
+    service: Annotated[RegistrationService, Depends(get_registration_service)],
 ) -> list[RegistrationListItem]:
-    return RegistrationService(db).list_current(student_id)
+    return service.list_current(student_id)
 
 
 @router.get("/me/timetable", response_model=list[TimetableItem])
 def get_my_timetable(
     student_id: Annotated[int, Depends(get_current_student_id)],
-    db: Annotated[Session, Depends(get_db)],
+    service: Annotated[RegistrationService, Depends(get_registration_service)],
 ) -> list[TimetableItem]:
-    return RegistrationService(db).timetable(student_id)
+    return service.timetable(student_id)

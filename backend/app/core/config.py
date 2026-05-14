@@ -25,15 +25,26 @@ class Settings(BaseSettings):
     HTTP_TIMEOUT: float = 30.0
     HTTP_RETRY_TIMES: int = 3
 
-    # Redis (ARQ worker queue + per-user sync lock)
+    # Redis keeps short-lived read cache, rate-limit buckets, and WebSocket pub/sub messages.
     REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_ENABLED: bool = False
+    REDIS_CACHE_TTL_SECONDS: int = 30
+    REDIS_SOCKET_TIMEOUT_SECONDS: float = 0.25
+
+    # RabbitMQ is used through Celery for background registration event handling.
     RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672//"
+    RABBITMQ_ENABLED: bool = False
+
+    WEBSOCKET_REDIS_BRIDGE_ENABLED: bool = False
+    REGISTRATION_RATE_LIMIT_ENABLED: bool = False
+    REGISTRATION_RATE_LIMIT_PER_MINUTE: int = 60
 
     # Snapshot storage (raw HTML bytes saved before parsing)
     SNAPSHOT_DIR: str = "./snapshots"
 
     # Observability
     LOG_LEVEL: str = "INFO"
+    METRICS_ENABLED: bool = True
     OTEL_SERVICE_NAME: str = "crsp-backend"
     OTEL_SERVICE_VERSION: str = "0.1.0"
     OTEL_EXPORTER_OTLP_ENDPOINT: str = ""  # empty disables OTel export
