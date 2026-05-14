@@ -47,7 +47,13 @@ services:
       POSTGRES_USER: crsp
       POSTGRES_PASSWORD: crsp
       REDIS_URL: redis://redis:6379/0
+      REDIS_ENABLED: "true"
+      WEBSOCKET_REDIS_BRIDGE_ENABLED: "true"
+      REGISTRATION_RATE_LIMIT_ENABLED: "true"
+      REGISTRATION_RATE_LIMIT_PER_MINUTE: "60"
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
+      RABBITMQ_ENABLED: "true"
+      METRICS_ENABLED: "true"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       SECRET_KEY: ${SECRET_KEY:-change-me-to-a-long-random-string}
     depends_on:
@@ -97,6 +103,8 @@ services:
       - "${GRAFANA_PORT:-3000}:3000"
     volumes:
       - ./observability/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./observability/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
 
 volumes:
   postgres-data:

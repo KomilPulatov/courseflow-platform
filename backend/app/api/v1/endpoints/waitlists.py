@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_student_id
 from app.db.session import get_db
+from app.modules.registration.publishers import RedisAvailabilityPublisher
 from app.modules.waitlists.schemas import WaitlistCreate, WaitlistDeleteResponse, WaitlistItem
 from app.modules.waitlists.service import WaitlistService
 
@@ -26,7 +27,7 @@ def join_waitlist(
     student_id: Annotated[int, Depends(get_current_student_id)],
     db: DbSession,
 ) -> WaitlistItem:
-    return WaitlistService(db).join(student_id, payload)
+    return WaitlistService(db, RedisAvailabilityPublisher(db)).join(student_id, payload)
 
 
 @router.delete("/{waitlist_entry_id}", response_model=WaitlistDeleteResponse)
@@ -35,4 +36,4 @@ def cancel_waitlist(
     student_id: Annotated[int, Depends(get_current_student_id)],
     db: DbSession,
 ) -> WaitlistDeleteResponse:
-    return WaitlistService(db).cancel(student_id, waitlist_entry_id)
+    return WaitlistService(db, RedisAvailabilityPublisher(db)).cancel(student_id, waitlist_entry_id)
