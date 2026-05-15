@@ -13,6 +13,7 @@ from app.modules.sync.schemas import (
 
 router = APIRouter()
 
+
 @router.get("/me", response_model=schemas.StudentProfileResponse)
 def get_my_profile(
     student: Student = Depends(get_current_student),  # noqa: B008
