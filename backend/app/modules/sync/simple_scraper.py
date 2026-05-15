@@ -6,7 +6,11 @@ from selectolax.parser import HTMLParser
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.modules.students.models import Student, StudentAcademicProfile, StudentCompletedCourse
+from app.modules.students.models import (
+    Student,
+    StudentAcademicProfile,
+    StudentCompletedCourse,
+)
 
 
 GRADE_POINTS_MAP = {

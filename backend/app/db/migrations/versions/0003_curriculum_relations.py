@@ -5,8 +5,8 @@ Revises: 0002_academic_foundation
 Create Date: 2026-05-11 10:00:00
 """
 
-import sqlalchemy as sa
 from alembic import op
+import sqlalchemy as sa
 
 revision = "0003_curriculum_relations"
 down_revision = "0002_academic_foundation"
