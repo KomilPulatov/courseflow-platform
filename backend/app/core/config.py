@@ -15,9 +15,9 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "crsp"
 
     # INS Portal scraper
-    PORTAL_BASE_URL: str = "https://ins.inha.uz"
+    PORTAL_BASE_URL: str = "http://ins.inha.uz"
     PORTAL_LOGIN_PATH: str = "/ITIS/Start.aspx"
-    PORTAL_GRADES_PATH: str = "/cabsoft_inha/ExportExe/pdfS.asp"
+    PORTAL_GRADES_PATH: str = "/ITIS/STD/SJ/SJ_51001/MarkView_xml.aspx"
     PORTAL_USER_AGENT: str = (
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"

@@ -13,7 +13,6 @@ from app.modules.sync.schemas import (
 
 router = APIRouter()
 
-
 @router.get("/me", response_model=schemas.StudentProfileResponse)
 def get_my_profile(
     student: Student = Depends(get_current_student),  # noqa: B008
@@ -94,12 +93,10 @@ def get_transcript(
         courses=[
             TranscriptCourseOut(
                 external_id=f"{student.student_number}::{c.course_code}",
-                semester="",
                 code=c.course_code,
                 title=c.course_title or "",
                 credits=c.credits or 0,
                 grade=c.grade or "",
-                grade_points=0.0,
             )
             for c in courses
         ],
