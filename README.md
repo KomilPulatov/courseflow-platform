@@ -85,6 +85,10 @@ docker compose config
 docker compose up -d
 ```
 
+Docker host ports are configured from `.env` (for example `NGINX_PORT=8081`,
+`POSTGRES_PORT=5432`, `GRAFANA_PORT=3000`). For deployment, change the
+environment file instead of editing `docker-compose.yml`.
+
 **Never run `pip install` directly** — it bypasses `uv.lock` and breaks reproducibility for the rest of the team. Always go through `uv add` / `uv sync`.
 
 ---
