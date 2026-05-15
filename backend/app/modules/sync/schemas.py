@@ -25,12 +25,10 @@ class SyncStatusResponse(BaseModel):
 
 class TranscriptCourseOut(BaseModel):
     external_id: str
-    semester: str
     code: str
     title: str
     credits: int
     grade: str
-    grade_points: float
 
 
 class TranscriptGpaOut(BaseModel):

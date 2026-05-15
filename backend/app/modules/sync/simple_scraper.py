@@ -1,4 +1,3 @@
-import re
 from datetime import UTC, datetime
 from urllib.parse import urljoin
 
@@ -10,33 +9,304 @@ from app.core.config import settings
 from app.modules.students.models import Student, StudentAcademicProfile, StudentCompletedCourse
 
 
-def _extract_profile_from_xml(
-    client: httpx.Client,
-    grades_url: str,
-    grades_html: str,
-) -> dict[str, str]:
-    match = re.search(r"MarkView_xml\.aspx\?Value=[^'\"\s>]+", grades_html)
-    if not match:
+GRADE_POINTS_MAP = {
+    "A+": 4.5,
+    "A0": 4.0,
+    "B+": 3.5,
+    "B0": 3.0,
+    "C+": 2.5,
+    "C0": 2.0,
+    "D+": 1.5,
+    "D0": 1.0,
+    "F": 0.0,
+}
+
+
+def _looks_like_login_page(html: str) -> bool:
+    return bool(
+        HTMLParser(html).css_first("input[name='txtInhaID'], input[name='txtPW']")
+    )
+
+
+def _get_first_tag_text(tree: HTMLParser, tags: list[str]) -> str:
+    for tag in tags:
+        for candidate in {tag, tag.lower(), tag.upper()}:
+            nodes = tree.css(candidate)
+            if nodes:
+                value = nodes[0].text(strip=True)
+                if value:
+                    return value
+    return ""
+
+
+def _split_paren(value: str) -> tuple[str, str]:
+    if "(" not in value or ")" not in value:
+        return "", ""
+    left, right = value.split("(", 1)
+    return left.strip(), right.split(")", 1)[0].strip()
+
+
+def _normalize_department_major(profile: dict[str, str]) -> None:
+    department = profile.get("department_name", "")
+    major = profile.get("major_name", "")
+
+    dep_from_dept, maj_from_dept = _split_paren(department)
+    dep_from_major, maj_from_major = _split_paren(major)
+
+    if dep_from_dept:
+        department = dep_from_dept
+    elif dep_from_major:
+        department = dep_from_major
+
+    if maj_from_major:
+        major = maj_from_major
+    elif maj_from_dept:
+        major = maj_from_dept
+
+    if department:
+        profile["department_name"] = department
+    if major:
+        profile["major_name"] = major
+
+
+def _parse_profile_from_text(text: str) -> dict[str, str]:
+    tokens = HTMLParser(text).text().split()
+    if len(tokens) < 3:
         return {}
 
-    xml_url = urljoin(grades_url, match.group(0))
-    xml_response = client.get(xml_url)
-    if xml_response.status_code != 200:
-        return {}
+    student_number = tokens[0]
+    full_name = " ".join(tokens[1:3]).strip()
+    department_name = ""
+    major_name = ""
 
-    xml_tree = HTMLParser(xml_response.text)
-
-    def get_text(tag: str) -> str:
-        node = xml_tree.css_first(tag)
-        return node.text(strip=True) if node else ""
+    for index in range(min(10, len(tokens))):
+        department_name, major_name = _split_paren(tokens[index])
+        if department_name or major_name:
+            break
+        if index + 1 < len(tokens):
+            next_token = tokens[index + 1]
+            if next_token.startswith("(") and next_token.endswith(")"):
+                department_name = tokens[index].strip()
+                major_name = next_token.strip("()").strip()
+                break
 
     return {
-        "student_number": get_text("STNO"),
-        "full_name": get_text("KNAME"),
-        "department_name": get_text("DEPT_KNAME"),
-        "major_name": get_text("MAJOR_NAME"),
-        "academic_year": get_text("GRADE"),
+        "student_number": student_number,
+        "full_name": full_name,
+        "department_name": department_name,
+        "major_name": major_name,
+        "academic_year": "",
     }
+
+
+def _parse_profile_from_xml(xml_text: str) -> dict[str, str]:
+    xml_tree = HTMLParser(xml_text)
+    profile = {
+        "student_number": _get_first_tag_text(
+            xml_tree,
+            ["STNO", "ST_NO", "STD_NO", "STUDENT_NO", "STUDENT_NUMBER"],
+        ),
+        "full_name": _get_first_tag_text(
+            xml_tree,
+            ["KNAME", "K_NAME", "STUDENT_NAME", "FULL_NAME", "NAME"],
+        ),
+        "department_name": _get_first_tag_text(
+            xml_tree,
+            ["DEPT_KNAME", "DEPT_NAME", "DEPARTMENT_NAME", "DEPT"],
+        ),
+        "major_name": _get_first_tag_text(
+            xml_tree,
+            ["MAJOR_NAME", "MAJOR", "MAJOR_KNAME"],
+        ),
+        "academic_year": _get_first_tag_text(
+            xml_tree,
+            ["GRADE", "ACADEMIC_YEAR", "YEAR_STANDING"],
+        ),
+    }
+
+    text_profile = _parse_profile_from_text(xml_text)
+    for key, value in text_profile.items():
+        if not profile.get(key) and value:
+            profile[key] = value
+
+    _normalize_department_major(profile)
+
+    return profile
+
+
+def _safe_int(value: str) -> int | None:
+    try:
+        return int(float(value))
+    except ValueError:
+        return None
+
+
+def _grade_points_for(grade: str) -> float:
+    return GRADE_POINTS_MAP.get(grade.upper(), 0.0)
+
+
+def _parse_courses_from_rows(tree: HTMLParser) -> list[dict[str, object]]:
+    courses: list[dict[str, object]] = []
+    for row in tree.css("ROW, row, TR, tr"):
+        code = _get_first_tag_text(
+            row,
+            ["COURSE_CODE", "SUBJECT_CODE", "CODE", "SUBJ_CODE", "COURSE"],
+        )
+        title = _get_first_tag_text(
+            row,
+            ["COURSE_TITLE", "SUBJECT_NAME", "TITLE", "SUBJ_NAME"],
+        )
+        grade = _get_first_tag_text(
+            row,
+            ["GRADE", "SCORE", "MARK"],
+        )
+        credits_text = _get_first_tag_text(
+            row,
+            ["CREDITS", "CREDIT", "CRD", "CREDIT_HOUR"],
+        )
+        semester = _get_first_tag_text(
+            row,
+            ["SEMESTER", "TERM", "YEAR_TERM", "YEAR_SEMESTER"],
+        )
+
+        if not code or not grade or not credits_text:
+            continue
+
+        credits = _safe_int(credits_text)
+        if credits is None:
+            continue
+
+        courses.append(
+            {
+                "semester": semester,
+                "code": code,
+                "title": title,
+                "grade": grade,
+                "credits": credits,
+                "grade_points": _grade_points_for(grade),
+            }
+        )
+    return courses
+
+
+def _parse_courses_from_table(tree: HTMLParser) -> list[dict[str, object]]:
+    current_semester = ""
+    courses: list[dict[str, object]] = []
+
+    for row in tree.css("table tr"):
+        text = row.text(strip=True)
+        if not text:
+            continue
+
+        if "Semester" in text:
+            if "Fall" in text:
+                year = text.split(" ")[1]
+                current_semester = f"{year}-Fall"
+            elif "Spring" in text:
+                year = text.split(" ")[1]
+                current_semester = f"{year}-Spring"
+            continue
+        columns = row.css("td")
+        if len(columns) == 5:
+            course_code = columns[0].text(strip=True)
+            course_title = columns[1].text(strip=True)
+            grade = columns[2].text(strip=True)
+            credits = columns[3].text(strip=True)
+            if course_title == "Course Title":
+                continue
+            if not course_code or "CA:" in text:
+                continue
+
+            credits_value = _safe_int(credits)
+            if credits_value is None:
+                continue
+
+            courses.append(
+                {
+                    "semester": current_semester,
+                    "code": course_code,
+                    "title": course_title,
+                    "grade": grade,
+                    "credits": credits_value,
+                    "grade_points": _grade_points_for(grade),
+                }
+            )
+
+    return courses
+
+
+def _parse_courses_from_text(text: str, student_number: str) -> list[dict[str, object]]:
+    if not student_number:
+        return []
+
+    tokens = HTMLParser(text).text().split()
+    if not tokens:
+        return []
+
+    standings = {"Freshman", "Sophomore", "Junior", "Senior"}
+    seasons = {"Fall", "Spring"}
+    grade_tokens = set(GRADE_POINTS_MAP.keys())
+
+    courses: list[dict[str, object]] = []
+    i = 0
+
+    while i < len(tokens):
+        if tokens[i] != student_number:
+            i += 1
+            continue
+
+        if i + 6 >= len(tokens) or tokens[i + 1] not in standings:
+            i += 1
+            continue
+
+        year = tokens[i + 3]
+        season = tokens[i + 4]
+        if season not in seasons or tokens[i + 5].lower() != "semester":
+            i += 1
+            continue
+
+        course_code = tokens[i + 6]
+        title_parts: list[str] = []
+        j = i + 7
+
+        while j + 1 < len(tokens):
+            credits_value = _safe_int(tokens[j])
+            if credits_value is not None and tokens[j + 1] in grade_tokens:
+                grade = tokens[j + 1]
+                course_title = " ".join(title_parts).strip()
+                if course_title:
+                    courses.append(
+                        {
+                            "semester": f"{year}-{season}",
+                            "code": course_code,
+                            "title": course_title,
+                            "grade": grade,
+                            "credits": credits_value,
+                            "grade_points": _grade_points_for(grade),
+                        }
+                    )
+                i = j + 2
+                break
+
+            title_parts.append(tokens[j])
+            j += 1
+        else:
+            i += 1
+
+    return courses
+
+
+def _parse_courses_from_xml(xml_text: str, student_number: str) -> list[dict[str, object]]:
+    tree = HTMLParser(xml_text)
+    courses = _parse_courses_from_rows(tree)
+    if courses:
+        return courses
+
+    courses = _parse_courses_from_table(tree)
+    if courses:
+        return courses
+
+    return _parse_courses_from_text(xml_text, student_number)
 
 
 def run_sync_simple(db: Session, user_id: str, username: str, password: str) -> None:
@@ -86,14 +356,19 @@ def run_sync_simple(db: Session, user_id: str, username: str, password: str) -> 
 
         if post_response.status_code in {401, 403}:
             raise Exception("Login failed. Check your username and password.")
-        if "Logout" not in post_response.text and "logout" not in post_response.text:
+        if _looks_like_login_page(post_response.text):
             raise Exception("Login failed. Check your username and password.")
         grades_response = client.get(grades_url)
-        grades_html = grades_response.text
+        if grades_response.status_code != 200:
+            raise Exception("Grades XML unavailable.")
+        xml_text = grades_response.text
+        if _looks_like_login_page(xml_text):
+            raise Exception("Login failed. Check your username and password.")
 
-        profile_data = _extract_profile_from_xml(client, grades_url, grades_html)
-
-    tree = HTMLParser(grades_html)
+        profile_data = _parse_profile_from_xml(xml_text)
+        found_courses = _parse_courses_from_xml(
+            xml_text, profile_data.get("student_number", "")
+        )
     try:
         user_id_int = int(user_id)
     except ValueError as exc:
@@ -106,52 +381,6 @@ def run_sync_simple(db: Session, user_id: str, username: str, password: str) -> 
     if profile_data.get("full_name"):
         student.full_name = profile_data["full_name"]
 
-    current_semester = ""
-    found_courses = []
-
-    for row in tree.css("table tr"):
-        text = row.text(strip=True)
-
-        if "Semester" in text:
-            if "Fall" in text:
-                year = text.split(" ")[1]
-                current_semester = f"{year}-Fall"
-            elif "Spring" in text:
-                year = text.split(" ")[1]
-                current_semester = f"{year}-Spring"
-            continue
-        columns = row.css("td")
-        if len(columns) == 5:
-            course_code = columns[0].text(strip=True)
-            course_title = columns[1].text(strip=True)
-            grade = columns[2].text(strip=True)
-            credits = columns[3].text(strip=True)
-            if course_title == "Course Title":
-                continue
-            if not course_code or "CA:" in text:
-                continue
-            grade_points_map = {
-                "A+": 4.5,
-                "A0": 4.0,
-                "B+": 3.5,
-                "B0": 3.0,
-                "C+": 2.5,
-                "C0": 2.0,
-                "D+": 1.5,
-                "D0": 1.0,
-            }
-            grade_points = grade_points_map.get(grade, 0.0)
-
-            found_courses.append(
-                {
-                    "semester": current_semester,
-                    "code": course_code,
-                    "title": course_title,
-                    "grade": grade,
-                    "credits": int(float(credits)),
-                    "grade_points": grade_points,
-                }
-            )
     db.query(StudentCompletedCourse).filter(
         StudentCompletedCourse.student_id == student.id
     ).delete()
@@ -168,6 +397,7 @@ def run_sync_simple(db: Session, user_id: str, username: str, password: str) -> 
                 course_title=course["title"],
                 credits=course["credits"],
                 grade=course["grade"],
+                completed_semester=course.get("semester") or None,
             )
         )
 

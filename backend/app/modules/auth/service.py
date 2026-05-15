@@ -94,6 +94,7 @@ def _login_student_scraped_ins(db: Session, student_number: str, password: str) 
         department=profile.department_name if profile else "",
         major=profile.major_name if profile else "",
         current_gpa=float(profile.current_gpa) if profile and profile.current_gpa else 0.0,
+        gpa_is_verified=profile.gpa_is_verified if profile else False,
     )
 
 
