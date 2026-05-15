@@ -59,7 +59,7 @@ def test_manual_student_start_rejects_duplicate_student_number(
     )
 
     assert response.status_code == 409
-    assert response.json()["detail"] == " student with this studemnt number already exists."
+    assert response.json()["detail"] == "A student with this student number already exists."
 
 
 def test_ins_login_syncs_verified_profile(client, db_session: Session, monkeypatch) -> None:
