@@ -46,8 +46,6 @@ class Professor(Base):
     department_name: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
-    sections: Mapped[list["Section"]] = relationship("Section", viewonly=True)
-
 
 class Student(Base):
     __tablename__ = "students"

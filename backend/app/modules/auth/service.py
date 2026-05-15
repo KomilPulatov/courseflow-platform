@@ -12,7 +12,6 @@ from app.db.models import (
     ExternalAccount,
     Student,
     StudentAcademicProfile,
-    StudentCompletedCourse,
     User,
 )
 from app.modules.auth.schemas import (
