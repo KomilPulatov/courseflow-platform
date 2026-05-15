@@ -5,8 +5,8 @@ Revises: 0001_registration_slice
 Create Date: 2026-05-10 16:00:00
 """
 
-import sqlalchemy as sa
 from alembic import op
+import sqlalchemy as sa
 
 revision = "0002_academic_foundation"
 down_revision = "0001_registration_slice"
