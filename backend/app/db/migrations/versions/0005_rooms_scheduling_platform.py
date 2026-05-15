@@ -7,8 +7,9 @@ Create Date: 2026-05-12 12:00:00.000000
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision: str = "0005_rooms_scheduling_platform"
 down_revision: str | None = "0004_course_identity_relaxation"

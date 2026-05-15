@@ -12,7 +12,6 @@ from app.modules.students.models import (
     StudentCompletedCourse,
 )
 
-
 GRADE_POINTS_MAP = {
     "A+": 4.5,
     "A0": 4.0,
@@ -27,9 +26,7 @@ GRADE_POINTS_MAP = {
 
 
 def _looks_like_login_page(html: str) -> bool:
-    return bool(
-        HTMLParser(html).css_first("input[name='txtInhaID'], input[name='txtPW']")
-    )
+    return bool(HTMLParser(html).css_first("input[name='txtInhaID'], input[name='txtPW']"))
 
 
 def _get_first_tag_text(tree: HTMLParser, tags: list[str]) -> str:
@@ -370,9 +367,7 @@ def run_sync_simple(db: Session, user_id: str, username: str, password: str) -> 
             raise Exception("Login failed. Check your username and password.")
 
         profile_data = _parse_profile_from_xml(xml_text)
-        found_courses = _parse_courses_from_xml(
-            xml_text, profile_data.get("student_number", "")
-        )
+        found_courses = _parse_courses_from_xml(xml_text, profile_data.get("student_number", ""))
     try:
         user_id_int = int(user_id)
     except ValueError as exc:
