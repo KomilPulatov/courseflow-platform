@@ -17,6 +17,44 @@ PROGRAMS = {
     },
 }
 
+EQUIVALENCIES = [
+    ("GEN1011", "Academic English 1", 2, "GEN1021", "Academic English 1", 2, "cross_program"),
+    ("GEN1012", "Academic English 2", 2, "GEN1022", "Academic English 2", 2, "cross_program"),
+    (
+        "GEN2010",
+        "Technical Writing & Discussion",
+        2,
+        "GEN1030",
+        "Technical Writing & Discussion",
+        2,
+        "cross_program",
+    ),
+    ("ICE1010", "Introduction to IT", 3, "CSE1010", "Introduction to IT", 3, "cross_program"),
+    (
+        "ICE1020",
+        "Creative Engineering Design",
+        3,
+        "CSE1020",
+        "Creative Engineering Design",
+        3,
+        "cross_program",
+    ),
+    ("ICE2010", "Data Structure", 3, "CSE2010", "Data Structure", 3, "cross_program"),
+    ("ICE2120", "Circuit and Lab", 3, "CSE2120", "Circuit and Lab", 3, "cross_program"),
+    (
+        "ICE3110",
+        "Signals and Systems",
+        3,
+        "CSE2090",
+        "Signals and Systems",
+        3,
+        "cross_program",
+    ),
+    ("ICE4020", "Capstone Design", 3, "CSE4020", "Capstone Design", 3, "cross_program"),
+    ("ICE4011", "Internship 1", 3, "CSE4011", "Internship 1", 3, "cross_program"),
+    ("ICE4012", "Internship 2", 3, "CSE4012", "Internship 2", 3, "cross_program"),
+]
+
 
 CURRICULA = {
     "ICE": [

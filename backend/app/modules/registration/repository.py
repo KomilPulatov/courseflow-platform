@@ -64,6 +64,27 @@ class RegistrationRepository:
         )
         return {int(value) for value in self.db.execute(stmt).scalars()}
 
+    def get_equivalent_course_ids(self, course_id: int) -> set[int]:
+        stmt = select(
+            models.CourseEquivalency.course_id,
+            models.CourseEquivalency.equivalent_course_id,
+        ).where(
+            or_(
+                models.CourseEquivalency.course_id == course_id,
+                models.CourseEquivalency.equivalent_course_id == course_id,
+            )
+        )
+        equivalent_ids = {course_id}
+        for left_id, right_id in self.db.execute(stmt):
+            equivalent_ids.add(int(left_id))
+            equivalent_ids.add(int(right_id))
+        return equivalent_ids
+
+    def get_equivalent_course_codes(self, course_id: int) -> set[str]:
+        equivalent_ids = self.get_equivalent_course_ids(course_id)
+        stmt = select(models.Course.code).where(models.Course.id.in_(equivalent_ids))
+        return set(self.db.execute(stmt).scalars())
+
     def get_active_course_enrollment(
         self,
         student_id: int,
