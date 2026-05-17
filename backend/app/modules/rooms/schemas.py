@@ -130,6 +130,28 @@ class ProfessorSectionRead(BaseModel):
     status: str
 
 
+class ProfessorScheduleSlotRead(BaseModel):
+    day_of_week: str
+    start_time: str
+    end_time: str
+    room_id: int | None
+    room_label: str | None
+
+
+class ProfessorSectionDetailRead(BaseModel):
+    section_id: int
+    course_offering_id: int
+    course_code: str
+    course_title: str
+    section_code: str
+    capacity: int
+    room_selection_mode: str
+    status: str
+    semester_name: str | None
+    current_room: str | None
+    schedules: list[ProfessorScheduleSlotRead]
+
+
 class ProfessorTimetableItemRead(BaseModel):
     section_id: int
     course_code: str

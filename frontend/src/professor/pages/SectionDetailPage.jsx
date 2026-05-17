@@ -59,10 +59,10 @@ export function SectionDetailPage() {
           <div className="panel-box">
             <div className="panel-box__head">Actions</div>
             <div className="panel-box__body stack-md">
-              <Link className="mini-button" to={`/sections/${detail.section_id}/room-options`}>
+              <Link className="mini-button" to={`/professor/sections/${detail.section_id}/room-options`}>
                 Open room options
               </Link>
-              <Link className="mini-button" to="/sections">
+              <Link className="mini-button" to="/professor/sections">
                 Back to my sections
               </Link>
             </div>

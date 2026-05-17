@@ -55,7 +55,7 @@ export function NotFoundPage() {
             <div className="quick-link__title">Open preferred landing</div>
             <div className="quick-link__hint">Resume from your saved entry point.</div>
           </a>
-          <Link className="quick-link" to="/health">
+          <Link className="quick-link" to="/app/health">
             <div className="quick-link__title">Check application health</div>
             <div className="quick-link__hint">Verify whether the system itself is healthy.</div>
           </Link>

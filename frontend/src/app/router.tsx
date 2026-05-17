@@ -30,6 +30,8 @@ import {
   SchedulingRunPage,
 } from "../features/admin/ops-pages";
 import { DemoPage } from "../features/demo/DemoPage";
+import { App as AppShellApp } from "../appShell/App";
+import { App as ProfessorApp } from "../professor/App";
 
 export function AppRouter() {
   return (
@@ -37,6 +39,8 @@ export function AppRouter() {
       <Routes>
         <Route path="/" element={<Navigate to="/demo" replace />} />
         <Route path="/demo" element={<DemoPage />} />
+        <Route path="/app/*" element={<AppShellApp />} />
+        <Route path="/professor/*" element={<ProfessorApp />} />
         <Route path="/admin/login" element={<LoginPage />} />
         <Route element={<AdminProtectedRoute />}>
           <Route path="/admin" element={<AdminLayout />}>
@@ -65,7 +69,7 @@ export function AppRouter() {
             <Route path="observability" element={<ObservabilityPage />} />
           </Route>
         </Route>
-        <Route path="*" element={<Navigate to="/demo" replace />} />
+        <Route path="*" element={<Navigate to="/app/not-found" replace />} />
       </Routes>
     </BrowserRouter>
   );

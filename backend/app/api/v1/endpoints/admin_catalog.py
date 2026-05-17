@@ -10,6 +10,8 @@ from app.modules.auth.dependencies import require_admin
 from app.modules.courses.schemas import (
     CourseCreate,
     CourseDetail,
+    CourseEquivalencyReplaceRequest,
+    CourseEquivalentRead,
     CourseEligibilityRuleCreate,
     CourseEligibilityRuleRead,
     CourseEligibilityRuleUpdate,

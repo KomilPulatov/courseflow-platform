@@ -1,18 +1,22 @@
-import axios from 'axios'
+import axios, {
+  AxiosError,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+} from 'axios'
 
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_BASE ?? '',
 })
 
-client.interceptors.request.use((config) => {
+client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('crsp_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
 client.interceptors.response.use(
-  (res) => res,
-  (err) => {
+  (res: AxiosResponse) => res,
+  (err: AxiosError) => {
     // Only redirect on 401 if the user already had a session (token was present).
     // During login the 401 means wrong credentials — let the page handle it.
     const hadToken = !!localStorage.getItem('crsp_token')

@@ -128,7 +128,7 @@ export function App() {
             </RequireProfessorSession>
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/professor" replace />} />
       </Routes>
     </ProfessorLayout>
   );
