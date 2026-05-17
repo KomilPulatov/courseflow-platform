@@ -25,6 +25,11 @@ class ManualStartRequest(BaseModel):
     password: str
 
 
+class ManualLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
 # --- Response schemas ---
 
 
@@ -53,3 +58,12 @@ class ManualStartResponse(BaseModel):
     role: str = "student"
     profile_source: str = "manual"
     requires_profile_completion: bool = True
+
+
+class ManualLoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    role: str = "student"
+    profile_source: str = "manual"
+    student_number: str
+    full_name: str
