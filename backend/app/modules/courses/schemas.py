@@ -96,6 +96,14 @@ class CourseReference(BaseModel):
     title: str
 
 
+class CourseEquivalentRead(BaseModel):
+    course_id: int
+    code: str
+    title: str
+    credits: int
+    equivalence_type: str
+
+
 class CourseSummary(BaseModel):
     id: int
     department_id: int | None
@@ -121,6 +129,7 @@ class CourseDetail(BaseModel):
     course_type: str | None
     is_repeatable: bool
     prerequisites: list[CourseReference]
+    equivalents: list[CourseEquivalentRead]
 
 
 class PrerequisiteReplaceRequest(BaseModel):
@@ -141,6 +150,19 @@ class CoursePrerequisiteRead(BaseModel):
     prerequisite_code: str
     prerequisite_title: str
     rule_group: str
+
+
+class CourseEquivalencyReplaceRequest(BaseModel):
+    equivalent_course_ids: list[int] = Field(default_factory=list)
+    equivalence_type: Literal["cross_program", "substitution"] = "cross_program"
+
+    @field_validator("equivalent_course_ids")
+    @classmethod
+    def deduplicate_ids(cls, value: list[int]) -> list[int]:
+        unique_ids = list(dict.fromkeys(value))
+        if any(item <= 0 for item in unique_ids):
+            raise ValueError("Equivalent course ids must be positive integers.")
+        return unique_ids
 
 
 class CourseEligibilityRuleCreate(BaseModel):

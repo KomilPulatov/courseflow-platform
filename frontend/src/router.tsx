@@ -19,6 +19,8 @@ import Waitlist from './pages/Waitlist'
 import Notifications from './pages/Notifications'
 import NotFound from './pages/NotFound'
 import LoginPlaceholder from './pages/LoginPlaceholder'
+import { App as ProfessorApp } from './professor/App.jsx'
+import { App as AppShell } from './appShell/App.jsx'
 
 export const router = createBrowserRouter([
   { path: '/', element: <Landing /> },
@@ -28,6 +30,8 @@ export const router = createBrowserRouter([
   { path: '/student/ins-login', element: <INSLogin /> },
   { path: '/student/manual-login', element: <ManualLogin /> },
   { path: '/student/manual-start', element: <ManualStart /> },
+  { path: '/professor/*', element: <ProfessorApp /> },
+  { path: '/app/*', element: <AppShell /> },
 
   {
     element: <ProtectedRoute />,

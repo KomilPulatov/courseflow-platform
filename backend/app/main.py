@@ -1,12 +1,10 @@
 import asyncio
 from contextlib import asynccontextmanager, suppress
-from pathlib import Path
 from uuid import uuid4
 
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.endpoints.websocket import router as websocket_router
 from app.api.v1.router import api_router
@@ -73,14 +71,6 @@ async def request_id_middleware(request: Request, call_next):
 
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(websocket_router)
-
-for demo_dir in (
-    Path(__file__).resolve().parents[2] / "frontend",
-    Path(__file__).resolve().parents[1] / "frontend",
-):
-    if demo_dir.exists():
-        app.mount("/demo", StaticFiles(directory=demo_dir, html=True), name="demo")
-        break
 
 
 @app.get("/health", tags=["Health"])

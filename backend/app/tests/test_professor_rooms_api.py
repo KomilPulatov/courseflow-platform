@@ -175,6 +175,43 @@ def test_professor_lists_assigned_sections(client, db_session: Session) -> None:
     assert sections[0]["room_selection_mode"] == "professor_choice"
 
 
+def test_professor_profile_and_detail_views(client, db_session: Session) -> None:
+    seed = seed_professor_rooms_case(db_session)
+    token = _get_professor_token(client)
+
+    me_resp = client.get(
+        "/api/v1/professor/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert me_resp.status_code == 200
+    assert me_resp.json()["full_name"] == "Dr. Test"
+
+    detail_resp = client.get(
+        f"/api/v1/professor/sections/{seed['section_id']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert detail_resp.status_code == 200
+    detail = detail_resp.json()
+    assert detail["section_id"] == seed["section_id"]
+    assert detail["course_code"] == "CSE3010"
+    assert detail["schedules"][0]["day_of_week"] == "Monday"
+
+
+def test_professor_timetable_lists_schedule_entries(client, db_session: Session) -> None:
+    seed_professor_rooms_case(db_session)
+    token = _get_professor_token(client)
+
+    resp = client.get(
+        "/api/v1/professor/timetable",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    items = resp.json()
+    assert len(items) == 1
+    assert items[0]["course_code"] == "CSE3010"
+    assert items[0]["day_of_week"] == "Monday"
+
+
 def test_professor_selects_room_successfully(client, db_session: Session) -> None:
     seed = seed_professor_rooms_case(db_session)
     token = _get_professor_token(client)

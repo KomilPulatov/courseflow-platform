@@ -242,6 +242,33 @@ class CoursePrerequisite(Base):
     )
 
 
+class CourseEquivalency(Base):
+    __tablename__ = "course_equivalencies"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"), nullable=False)
+    equivalent_course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"), nullable=False)
+    equivalence_type: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="cross_program",
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("course_id", "equivalent_course_id", name="uq_course_equivalency_pair"),
+        CheckConstraint("course_id <> equivalent_course_id", name="ck_course_not_own_equivalent"),
+        CheckConstraint(
+            "course_id < equivalent_course_id",
+            name="ck_course_equivalency_order",
+        ),
+        CheckConstraint(
+            "equivalence_type IN ('cross_program', 'substitution')",
+            name="ck_course_equivalency_type",
+        ),
+    )
+
+
 class CourseEligibilityRule(Base):
     __tablename__ = "course_eligibility_rules"
 

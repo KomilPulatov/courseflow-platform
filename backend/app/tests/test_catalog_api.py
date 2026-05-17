@@ -71,6 +71,19 @@ def test_admin_setup_and_public_catalog_flow(client, db_session) -> None:
     assert target_course.status_code == 201
     target_course_id = target_course.json()["id"]
 
+    equivalent_course = client.post(
+        "/api/v1/admin/courses",
+        headers=headers,
+        json={
+            "department_id": department_id,
+            "code": "ICE3010",
+            "title": "Database Application Design",
+            "credits": 3,
+        },
+    )
+    assert equivalent_course.status_code == 201
+    equivalent_course_id = equivalent_course.json()["id"]
+
     prerequisites = client.put(
         f"/api/v1/admin/courses/{target_course_id}/prerequisites",
         headers=headers,
@@ -78,6 +91,17 @@ def test_admin_setup_and_public_catalog_flow(client, db_session) -> None:
     )
     assert prerequisites.status_code == 200
     assert prerequisites.json()[0]["prerequisite_code"] == "CSE2010"
+
+    equivalencies = client.put(
+        f"/api/v1/admin/courses/{target_course_id}/equivalencies",
+        headers=headers,
+        json={
+            "equivalent_course_ids": [equivalent_course_id],
+            "equivalence_type": "cross_program",
+        },
+    )
+    assert equivalencies.status_code == 200
+    assert equivalencies.json()[0]["code"] == "ICE3010"
 
     offering = client.post(
         "/api/v1/admin/course-offerings",
@@ -120,6 +144,7 @@ def test_admin_setup_and_public_catalog_flow(client, db_session) -> None:
     course_detail = client.get(f"/api/v1/courses/{target_course_id}")
     assert course_detail.status_code == 200
     assert course_detail.json()["prerequisites"][0]["code"] == "CSE2010"
+    assert course_detail.json()["equivalents"][0]["code"] == "ICE3010"
 
     sections = client.get(
         f"/api/v1/courses/{target_course_id}/sections", params={"semester_id": semester_id}
@@ -170,3 +195,22 @@ def test_eligible_only_requires_student_header(client, db_session) -> None:
 
     assert response.status_code == 400
     assert "X-Student-Id" in response.json()["detail"]
+
+
+def test_course_equivalency_self_reference_is_rejected(client, db_session) -> None:
+    headers = create_admin_headers(db_session)
+    department = Department(code="CSE", name="Computer Science")
+    db_session.add(department)
+    db_session.flush()
+    course = Course(department_id=department.id, code="CSE1001", title="A", credits=3)
+    db_session.add(course)
+    db_session.commit()
+
+    response = client.put(
+        f"/api/v1/admin/courses/{course.id}/equivalencies",
+        headers=headers,
+        json={"equivalent_course_ids": [course.id], "equivalence_type": "cross_program"},
+    )
+
+    assert response.status_code == 400
+    assert "cannot be equivalent to itself" in response.json()["detail"].lower()
