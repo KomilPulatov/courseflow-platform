@@ -23,6 +23,23 @@ class DepartmentRead(BaseModel):
     id: int
     code: str
     name: str
+    is_active: bool
+
+
+class DepartmentUpdate(BaseModel):
+    code: str | None = Field(default=None, min_length=2, max_length=20)
+    name: str | None = Field(default=None, min_length=2, max_length=255)
+    is_active: bool | None = None
+
+    @field_validator("code")
+    @classmethod
+    def normalize_optional_code(cls, value: str | None) -> str | None:
+        return value.strip().upper() if value is not None else None
+
+    @field_validator("name")
+    @classmethod
+    def normalize_optional_name(cls, value: str | None) -> str | None:
+        return value.strip() if value is not None else None
 
 
 class MajorCreate(BaseModel):
@@ -46,6 +63,24 @@ class MajorRead(BaseModel):
     department_id: int
     code: str
     name: str
+    is_active: bool
+
+
+class MajorUpdate(BaseModel):
+    department_id: int | None = Field(default=None, gt=0)
+    code: str | None = Field(default=None, min_length=2, max_length=20)
+    name: str | None = Field(default=None, min_length=2, max_length=255)
+    is_active: bool | None = None
+
+    @field_validator("code")
+    @classmethod
+    def normalize_optional_code(cls, value: str | None) -> str | None:
+        return value.strip().upper() if value is not None else None
+
+    @field_validator("name")
+    @classmethod
+    def normalize_optional_name(cls, value: str | None) -> str | None:
+        return value.strip() if value is not None else None
 
 
 SemesterStatus = Literal["draft", "active", "archived"]
@@ -65,6 +100,16 @@ class SemesterRead(BaseModel):
     id: int
     name: str
     status: SemesterStatus
+
+
+class SemesterUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=4, max_length=120)
+    status: SemesterStatus | None = None
+
+    @field_validator("name")
+    @classmethod
+    def normalize_optional_name(cls, value: str | None) -> str | None:
+        return value.strip() if value is not None else None
 
 
 class CourseCreate(BaseModel):
@@ -107,6 +152,7 @@ class CourseSummary(BaseModel):
     course_type: str | None
     active_offering_count: int
     active_section_count: int
+    is_active: bool
 
 
 class CourseDetail(BaseModel):
@@ -120,7 +166,32 @@ class CourseDetail(BaseModel):
     description: str | None
     course_type: str | None
     is_repeatable: bool
+    is_active: bool
     prerequisites: list[CourseReference]
+
+
+class CourseUpdate(BaseModel):
+    department_id: int | None = Field(default=None, gt=0)
+    code: str | None = Field(default=None, min_length=4, max_length=40)
+    title: str | None = Field(default=None, min_length=2, max_length=255)
+    credits: int | None = Field(default=None, gt=0, le=12)
+    description: str | None = Field(default=None, max_length=5000)
+    course_type: str | None = Field(default=None, max_length=40)
+    is_repeatable: bool | None = None
+    is_active: bool | None = None
+
+    @field_validator("code")
+    @classmethod
+    def normalize_optional_code(cls, value: str | None) -> str | None:
+        return value.strip().upper() if value is not None else None
+
+    @field_validator("title", "description", "course_type")
+    @classmethod
+    def strip_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
 
 
 class PrerequisiteReplaceRequest(BaseModel):
@@ -161,6 +232,14 @@ class CourseEligibilityRuleRead(BaseModel):
     rule_metadata: dict | None
 
 
+class CourseEligibilityRuleUpdate(BaseModel):
+    min_academic_year: int | None = Field(default=None, ge=1, le=6)
+    min_gpa: float | None = Field(default=None, ge=0, le=5)
+    allowed_department_ids: list[int] | None = None
+    allowed_major_ids: list[int] | None = None
+    rule_metadata: dict | None = None
+
+
 CourseOfferingStatus = Literal["draft", "active", "cancelled", "archived"]
 
 
@@ -179,6 +258,10 @@ class CourseOfferingRead(BaseModel):
     semester_name: str
     status: CourseOfferingStatus
     section_count: int
+
+
+class CourseOfferingUpdate(BaseModel):
+    status: CourseOfferingStatus | None = None
 
 
 SectionStatus = Literal["draft", "open", "closed", "cancelled"]
@@ -217,6 +300,19 @@ class SectionSummary(BaseModel):
     status: SectionStatus
 
 
+class SectionUpdate(BaseModel):
+    professor_id: int | None = Field(default=None, gt=0)
+    section_code: str | None = Field(default=None, min_length=1, max_length=40)
+    capacity: int | None = Field(default=None, gt=0, le=500)
+    room_selection_mode: RoomSelectionMode | None = None
+    status: SectionStatus | None = None
+
+    @field_validator("section_code")
+    @classmethod
+    def normalize_optional_section_code(cls, value: str | None) -> str | None:
+        return value.strip().upper() if value is not None else None
+
+
 class SectionAvailability(BaseModel):
     section_id: int
     capacity: int
@@ -249,6 +345,22 @@ class RegistrationPeriodRead(BaseModel):
     opens_at: datetime
     closes_at: datetime
     status: RegistrationPeriodStatus
+
+
+class RegistrationPeriodUpdate(BaseModel):
+    opens_at: datetime | None = None
+    closes_at: datetime | None = None
+    status: RegistrationPeriodStatus | None = None
+
+    @model_validator(mode="after")
+    def validate_window(self) -> "RegistrationPeriodUpdate":
+        if (
+            self.opens_at is not None
+            and self.closes_at is not None
+            and self.closes_at <= self.opens_at
+        ):
+            raise ValueError("closes_at must be later than opens_at.")
+        return self
 
 
 class ErrorResponse(BaseModel):

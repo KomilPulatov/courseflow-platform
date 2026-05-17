@@ -67,36 +67,28 @@ async def request_id_middleware(request: Request, call_next):
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(websocket_router)
 
-for demo_dir in (
+frontend_dir: Path | None = None
+for candidate_dir in (
+    Path(__file__).resolve().parents[2] / "frontend" / "dist",
+    Path(__file__).resolve().parents[1] / "frontend" / "dist",
     Path(__file__).resolve().parents[2] / "frontend",
     Path(__file__).resolve().parents[1] / "frontend",
 ):
-    if demo_dir.exists():
-        app.mount("/demo", StaticFiles(directory=demo_dir, html=True), name="demo")
+    if (candidate_dir / "index.html").exists():
+        frontend_dir = candidate_dir
         break
 
+if frontend_dir is not None:
+    assets_dir = frontend_dir / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
 
-admin_dir: Path | None = None
-for candidate_admin_dir in (
-    Path(__file__).resolve().parents[2] / "frontend" / "admin",
-    Path(__file__).resolve().parents[1] / "frontend" / "admin",
-):
-    if candidate_admin_dir.exists():
-        admin_dir = candidate_admin_dir
-        app.mount(
-            "/admin/assets",
-            StaticFiles(directory=candidate_admin_dir),
-            name="admin-assets",
-        )
-        break
-
-
-if admin_dir is not None:
-
+    @app.get("/demo", include_in_schema=False)
+    @app.get("/demo/{full_path:path}", include_in_schema=False)
     @app.get("/admin", include_in_schema=False)
     @app.get("/admin/{full_path:path}", include_in_schema=False)
-    def admin_spa(full_path: str = "") -> FileResponse:
-        return FileResponse(admin_dir / "index.html")
+    def react_spa(full_path: str = "") -> FileResponse:
+        return FileResponse(frontend_dir / "index.html")
 
 
 @app.get("/health", tags=["Health"])

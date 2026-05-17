@@ -77,9 +77,42 @@ class CourseCatalogRepository:
         self.db.flush()
         return semester
 
-    def list_courses(self) -> list[models.Course]:
-        stmt = select(models.Course).order_by(models.Course.code)
+    def list_courses(
+        self,
+        *,
+        search: str | None = None,
+        department_id: int | None = None,
+        is_active: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> list[models.Course]:
+        stmt = select(models.Course)
+        stmt = self._apply_course_filters(
+            stmt,
+            search=search,
+            department_id=department_id,
+            is_active=is_active,
+        ).order_by(models.Course.code, models.Course.title)
+        if offset is not None:
+            stmt = stmt.offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
         return list(self.db.execute(stmt).scalars())
+
+    def count_courses(
+        self,
+        *,
+        search: str | None = None,
+        department_id: int | None = None,
+        is_active: bool | None = None,
+    ) -> int:
+        stmt = self._apply_course_filters(
+            select(func.count()).select_from(models.Course),
+            search=search,
+            department_id=department_id,
+            is_active=is_active,
+        )
+        return int(self.db.execute(stmt).scalar_one())
 
     def get_course(self, course_id: int) -> models.Course | None:
         return self.db.get(models.Course, course_id)
@@ -122,6 +155,9 @@ class CourseCatalogRepository:
         )
         return list(self.db.execute(stmt).scalars())
 
+    def get_course_rule(self, rule_id: int) -> models.CourseEligibilityRule | None:
+        return self.db.get(models.CourseEligibilityRule, rule_id)
+
     def create_course_rule(
         self, *, course_id: int, **kwargs: object
     ) -> models.CourseEligibilityRule:
@@ -129,6 +165,10 @@ class CourseCatalogRepository:
         self.db.add(rule)
         self.db.flush()
         return rule
+
+    def delete_course_rule(self, rule: models.CourseEligibilityRule) -> None:
+        self.db.delete(rule)
+        self.db.flush()
 
     def delete_prerequisites(self, course_id: int) -> None:
         stmt = select(models.CoursePrerequisite).where(
@@ -223,19 +263,42 @@ class CourseCatalogRepository:
         *,
         course_id: int | None = None,
         semester_id: int | None = None,
+        status: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[models.Section]:
-        stmt = (
-            select(models.Section)
+        stmt = self._apply_section_filters(
+            select(models.Section).join(
+                models.CourseOffering, models.CourseOffering.id == models.Section.course_offering_id
+            ),
+            course_id=course_id,
+            semester_id=semester_id,
+            status=status,
+        ).order_by(models.Section.section_code, models.Section.id)
+        if offset is not None:
+            stmt = stmt.offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        return list(self.db.execute(stmt).scalars())
+
+    def count_sections(
+        self,
+        *,
+        course_id: int | None = None,
+        semester_id: int | None = None,
+        status: str | None = None,
+    ) -> int:
+        stmt = self._apply_section_filters(
+            select(func.count())
+            .select_from(models.Section)
             .join(
                 models.CourseOffering, models.CourseOffering.id == models.Section.course_offering_id
-            )
-            .order_by(models.Section.section_code)
+            ),
+            course_id=course_id,
+            semester_id=semester_id,
+            status=status,
         )
-        if course_id is not None:
-            stmt = stmt.where(models.CourseOffering.course_id == course_id)
-        if semester_id is not None:
-            stmt = stmt.where(models.CourseOffering.semester_id == semester_id)
-        return list(self.db.execute(stmt).scalars())
+        return int(self.db.execute(stmt).scalar_one())
 
     def create_section(self, **kwargs: object) -> models.Section:
         section = models.Section(**kwargs)
@@ -327,3 +390,29 @@ class CourseCatalogRepository:
                 payload=payload,
             )
         )
+
+    @staticmethod
+    def _apply_course_filters(stmt, *, search, department_id, is_active):
+        if department_id is not None:
+            stmt = stmt.where(models.Course.department_id == department_id)
+        if is_active is not None:
+            stmt = stmt.where(models.Course.is_active.is_(is_active))
+        if search:
+            like = f"%{search.strip().lower()}%"
+            stmt = stmt.where(
+                or_(
+                    func.lower(models.Course.code).like(like),
+                    func.lower(models.Course.title).like(like),
+                )
+            )
+        return stmt
+
+    @staticmethod
+    def _apply_section_filters(stmt, *, course_id, semester_id, status):
+        if course_id is not None:
+            stmt = stmt.where(models.CourseOffering.course_id == course_id)
+        if semester_id is not None:
+            stmt = stmt.where(models.CourseOffering.semester_id == semester_id)
+        if status is not None:
+            stmt = stmt.where(models.Section.status == status)
+        return stmt

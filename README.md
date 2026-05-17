@@ -16,7 +16,7 @@ Built by **team Celion**. See `docs/technical-specification.md` for the full spe
 - **Realtime:** WebSockets (live seat updates)
 - **Gateway:** Nginx (reverse proxy + load balance across two backend replicas)
 - **Observability:** OpenTelemetry, Prometheus, Grafana, Loki/Tempo
-- **Frontend:** Static demo console at `/demo` plus a dedicated admin SPA at `/admin`
+- **Frontend:** React + TypeScript + Vite single-page app serving both `/demo` and `/admin`
 - **Package manager:** [`uv`](https://docs.astral.sh/uv/) (single source of truth: `backend/pyproject.toml` + `backend/uv.lock`)
 
 ---
@@ -46,7 +46,12 @@ uv run alembic upgrade head
 uv run python -m app.db.demo_seed     # demo admin + catalog data
 uv run uvicorn app.main:app --reload  # http://localhost:8000/docs
 
-# 3. (Optional but recommended) install pre-commit hooks
+# 3. Frontend
+cd ../frontend
+npm install
+npm run build                         # creates frontend/dist for FastAPI to serve
+
+# 4. (Optional but recommended) install pre-commit hooks
 cd ..
 uv tool install pre-commit
 pre-commit install
@@ -79,6 +84,15 @@ All run from `backend/` unless noted.
 | Format check (CI-style) | `uv run ruff format --check .` |
 | Run all hooks locally | `pre-commit run --all-files` *(from repo root)* |
 
+Frontend commands run from `frontend/`:
+
+| Goal | Command |
+|---|---|
+| Install deps | `npm install` |
+| Run dev server | `npm run dev` |
+| Run tests | `npm test` |
+| Build production assets | `npm run build` |
+
 From the repo root, the full local stack can be validated with:
 
 ```bash
@@ -108,7 +122,7 @@ courseflow-platform/
 │     ├─ db/              # session, transaction helpers
 │     ├─ modules/         # auth / courses / registration / waitlist / timetable / audit
 │     └─ tests/           # unit / integration / load
-├─ frontend/              # Static demo console plus admin SPA mounted at /demo and /admin
+├─ frontend/              # React + TypeScript + Vite app mounted at /demo and /admin
 ├─ nginx/                 # reverse proxy + LB config
 ├─ postgres/              # init.sql, tuning
 ├─ docs/                  # architecture, ER diagram, BPMN, ADRs
@@ -127,6 +141,9 @@ We use **trunk-based development** with **Conventional Commits**. Before opening
 ```bash
 cd backend
 uv run ruff check . && uv run ruff format --check . && uv run pytest
+
+cd ../frontend
+npm test && npm run build
 ```
 
 Full guidelines: [CONTRIBUTING.md](CONTRIBUTING.md).

@@ -62,4 +62,4 @@ def list_course_sections(
 ) -> list[SectionSummary]:
     service = CourseCatalogService(db)
     service.get_course_detail(course_id)
-    return service.list_sections(course_id=course_id, semester_id=semester_id)
+    return service.list_public_sections(course_id=course_id, semester_id=semester_id)

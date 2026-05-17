@@ -10,10 +10,12 @@ from app.modules.courses.schemas import ErrorResponse
 from app.modules.rooms.schemas import (
     ProfessorCreate,
     ProfessorRead,
+    ProfessorUpdate,
     RoomAllocationCreate,
     RoomAllocationRead,
     RoomCreate,
     RoomRead,
+    RoomUpdate,
 )
 from app.modules.rooms.service import RoomService
 
@@ -42,6 +44,20 @@ def create_room(
     db: DbSession,
 ) -> RoomRead:
     return RoomService(db).create_room(payload)
+
+
+@router.patch(
+    "/rooms/{room_id}",
+    response_model=RoomRead,
+    responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+)
+def update_room(
+    room_id: int,
+    payload: RoomUpdate,
+    _admin: AdminUser,
+    db: DbSession,
+) -> RoomRead:
+    return RoomService(db).update_room(room_id, payload)
 
 
 # ── Room allocations ──────────────────────────────────────────────────────────
@@ -78,6 +94,20 @@ def allocate_rooms(
     )
 
 
+@router.delete(
+    "/sections/{section_id}/room-allocations/{room_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+)
+def remove_room_allocation(
+    section_id: int,
+    room_id: int,
+    _admin: AdminUser,
+    db: DbSession,
+) -> None:
+    RoomService(db).remove_allocation(section_id, room_id)
+
+
 # ── Professors (admin CRUD) ───────────────────────────────────────────────────
 
 
@@ -98,3 +128,17 @@ def create_professor(
     db: DbSession,
 ) -> ProfessorRead:
     return RoomService(db).create_professor(payload)
+
+
+@router.patch(
+    "/professors/{professor_id}",
+    response_model=ProfessorRead,
+    responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+)
+def update_professor(
+    professor_id: int,
+    payload: ProfessorUpdate,
+    _admin: AdminUser,
+    db: DbSession,
+) -> ProfessorRead:
+    return RoomService(db).update_professor(professor_id, payload)

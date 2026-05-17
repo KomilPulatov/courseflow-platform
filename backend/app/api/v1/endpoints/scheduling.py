@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from app.api.pagination import Page
 from app.db.models import User
 from app.db.session import get_db
 from app.modules.auth.dependencies import require_admin
@@ -33,13 +34,21 @@ def create_suggestion_run(
     return SchedulingService(db).create_run(payload, requested_by_user_id=current_user.id)
 
 
-@router.get("/suggestion-runs", response_model=list[SuggestionRunSummary])
+@router.get("/suggestion-runs", response_model=Page[SuggestionRunSummary])
 def list_suggestion_runs(
     _admin: AdminUser,
     db: DbSession,
+    semester_id: Annotated[int | None, Query(gt=0)] = None,
+    status_value: Annotated[str | None, Query(alias="status")] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
-) -> list[SuggestionRunSummary]:
-    return SchedulingService(db).list_runs(limit=limit)
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> Page[SuggestionRunSummary]:
+    return SchedulingService(db).list_runs(
+        semester_id=semester_id,
+        status_value=status_value,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/suggestion-runs/{run_id}", response_model=SuggestionRunRead)
