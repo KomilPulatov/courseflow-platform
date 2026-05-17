@@ -29,30 +29,29 @@ class ProfessorRead(BaseModel):
     email: str | None
     full_name: str
     department_name: str | None
+    is_active: bool
 
     model_config = {"from_attributes": True}
 
 
-class ProfessorScheduleSlotRead(BaseModel):
-    day_of_week: str
-    start_time: str
-    end_time: str
-    room_id: int | None
-    room_label: str | None
+class ProfessorUpdate(BaseModel):
+    email: str | None = Field(default=None, min_length=5, max_length=255)
+    full_name: str | None = Field(default=None, min_length=2, max_length=255)
+    department_name: str | None = Field(default=None, max_length=255)
+    is_active: bool | None = None
 
+    @field_validator("email")
+    @classmethod
+    def normalize_optional_email(cls, value: str | None) -> str | None:
+        return value.strip().lower() if value is not None else None
 
-class ProfessorSectionDetailRead(BaseModel):
-    section_id: int
-    course_offering_id: int
-    course_code: str
-    course_title: str
-    section_code: str
-    capacity: int
-    room_selection_mode: str
-    status: str
-    semester_name: str | None
-    current_room: str | None
-    schedules: list[ProfessorScheduleSlotRead]
+    @field_validator("full_name", "department_name")
+    @classmethod
+    def strip_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
 
 
 class RoomCreate(BaseModel):
@@ -80,6 +79,22 @@ class RoomRead(BaseModel):
     is_active: bool
 
     model_config = {"from_attributes": True}
+
+
+class RoomUpdate(BaseModel):
+    building: str | None = Field(default=None, max_length=80)
+    room_number: str | None = Field(default=None, min_length=1, max_length=40)
+    capacity: int | None = Field(default=None, gt=0, le=1000)
+    room_type: str | None = Field(default=None, min_length=1, max_length=40)
+    is_active: bool | None = None
+
+    @field_validator("building", "room_number", "room_type")
+    @classmethod
+    def strip_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
 
 
 class RoomAllocationCreate(BaseModel):

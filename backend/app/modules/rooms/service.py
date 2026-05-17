@@ -41,9 +41,50 @@ class RoomService:
         professors = list(self.db.execute(select(models.Professor)).scalars())
         return [self._professor_read(p) for p in professors]
 
-    def get_professor_profile(self, user_id: int) -> schemas.ProfessorRead:
-        professor = self._get_professor_by_user(user_id)
-        return self._professor_read(professor)
+    def update_professor(
+        self,
+        professor_id: int,
+        payload: schemas.ProfessorUpdate,
+    ) -> schemas.ProfessorRead:
+        professor = self.db.get(models.Professor, professor_id)
+        if professor is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Professor not found.",
+            )
+        user = self.db.get(models.User, professor.user_id)
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        updates = payload.model_dump(exclude_unset=True)
+        if "email" in updates and updates["email"] != user.email:
+            existing = self.db.execute(
+                select(models.User).where(func.lower(models.User.email) == updates["email"].lower())
+            ).scalar_one_or_none()
+            if existing is not None and existing.id != user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="A user with this email already exists.",
+                )
+            user.email = updates.pop("email")
+        if updates.get("is_active") is False:
+            active_sections = self.db.execute(
+                select(models.Section.id).where(
+                    models.Section.professor_id == professor.id,
+                    models.Section.status.in_(["draft", "open"]),
+                )
+            ).first()
+            if active_sections is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Close active sections before archiving this professor.",
+                )
+            user.status = "inactive"
+        elif updates.get("is_active") is True:
+            user.status = "active"
+        for field, value in updates.items():
+            setattr(professor, field, value)
+        self.db.commit()
+        return self._professor_read(professor, user)
 
     def create_room(self, payload: schemas.RoomCreate) -> schemas.RoomRead:
         existing = self.db.execute(
@@ -65,6 +106,64 @@ class RoomService:
     def list_rooms(self) -> list[schemas.RoomRead]:
         rooms = list(self.db.execute(select(models.Room)).scalars())
         return [self._room_read(r) for r in rooms]
+
+    def update_room(self, room_id: int, payload: schemas.RoomUpdate) -> schemas.RoomRead:
+        room = self.db.get(models.Room, room_id)
+        if room is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found.")
+        updates = payload.model_dump(exclude_unset=True)
+        next_building = updates.get("building", room.building)
+        next_number = updates.get("room_number", room.room_number)
+        if next_building != room.building or next_number != room.room_number:
+            existing = self.db.execute(
+                select(models.Room).where(
+                    models.Room.building == next_building,
+                    func.lower(models.Room.room_number) == next_number.lower(),
+                )
+            ).scalar_one_or_none()
+            if existing is not None and existing.id != room.id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Room already exists.",
+                )
+        if "capacity" in updates:
+            oversized_allocation = self.db.execute(
+                select(models.Section.id)
+                .join(
+                    models.RoomAllocation,
+                    models.RoomAllocation.section_id == models.Section.id,
+                )
+                .where(
+                    models.RoomAllocation.room_id == room.id,
+                    models.Section.status.in_(["draft", "open"]),
+                    models.Section.capacity > updates["capacity"],
+                )
+            ).first()
+            if oversized_allocation is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Room capacity cannot be lower than an allocated active section.",
+                )
+        if updates.get("is_active") is False:
+            active_allocations = self.db.execute(
+                select(models.RoomAllocation.id)
+                .join(models.Section, models.Section.id == models.RoomAllocation.section_id)
+                .where(
+                    models.RoomAllocation.room_id == room.id,
+                    models.Section.status.in_(["draft", "open"]),
+                )
+            ).first()
+            if active_allocations is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "Remove room allocations from active sections before archiving this room."
+                    ),
+                )
+        for field, value in updates.items():
+            setattr(room, field, value)
+        self.db.commit()
+        return self._room_read(room)
 
     def allocate_rooms(
         self,
@@ -115,6 +214,34 @@ class RoomService:
             ).scalars()
         )
         return [self._allocation_read(a) for a in allocations]
+
+    def remove_allocation(self, section_id: int, room_id: int) -> None:
+        self._get_section(section_id)
+        allocation = self.db.execute(
+            select(models.RoomAllocation).where(
+                models.RoomAllocation.section_id == section_id,
+                models.RoomAllocation.room_id == room_id,
+            )
+        ).scalar_one_or_none()
+        if allocation is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Room allocation not found.",
+            )
+        selected_preference = self.db.execute(
+            select(models.ProfessorRoomPreference).where(
+                models.ProfessorRoomPreference.section_id == section_id,
+                models.ProfessorRoomPreference.room_id == room_id,
+                models.ProfessorRoomPreference.status == "selected",
+            )
+        ).first()
+        if selected_preference is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Remove or change the selected professor room before deallocating it.",
+            )
+        self.db.delete(allocation)
+        self.db.commit()
 
     def list_professor_sections(self, user_id: int) -> list[schemas.ProfessorSectionRead]:
         professor = self._get_professor_by_user(user_id)
@@ -276,6 +403,7 @@ class RoomService:
             email=user.email if user else None,
             full_name=professor.full_name,
             department_name=professor.department_name,
+            is_active=professor.is_active,
         )
 
     def _room_read(self, room: models.Room) -> schemas.RoomRead:
