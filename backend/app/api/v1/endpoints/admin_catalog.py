@@ -145,6 +145,19 @@ def create_course_eligibility_rule(
     return CourseCatalogService(db).create_eligibility_rule(course_id, payload)
 
 
+@router.get(
+    "/courses/{course_id}/eligibility-rules",
+    response_model=list[CourseEligibilityRuleRead],
+    responses={404: {"model": ErrorResponse}},
+)
+def list_course_eligibility_rules(
+    course_id: int,
+    _admin: AdminUser,
+    db: DbSession,
+) -> list[CourseEligibilityRuleRead]:
+    return CourseCatalogService(db).list_eligibility_rules(course_id)
+
+
 @router.get("/course-offerings", response_model=list[CourseOfferingRead])
 def list_course_offerings(
     _admin: AdminUser,

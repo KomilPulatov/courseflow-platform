@@ -16,7 +16,7 @@ Built by **team Celion**. See `docs/technical-specification.md` for the full spe
 - **Realtime:** WebSockets (live seat updates)
 - **Gateway:** Nginx (reverse proxy + load balance across two backend replicas)
 - **Observability:** OpenTelemetry, Prometheus, Grafana, Loki/Tempo
-- **Frontend:** Static demo console served by FastAPI at `/demo`
+- **Frontend:** Static demo console at `/demo` plus a dedicated admin SPA at `/admin`
 - **Package manager:** [`uv`](https://docs.astral.sh/uv/) (single source of truth: `backend/pyproject.toml` + `backend/uv.lock`)
 
 ---
@@ -56,6 +56,7 @@ Open:
 
 - http://localhost:8000/docs for the OpenAPI UI
 - http://localhost:8000/demo for the seeded demo console
+- http://localhost:8000/admin for the admin console
 - http://localhost:8000/health for the health check
 
 ---
@@ -107,7 +108,7 @@ courseflow-platform/
 │     ├─ db/              # session, transaction helpers
 │     ├─ modules/         # auth / courses / registration / waitlist / timetable / audit
 │     └─ tests/           # unit / integration / load
-├─ frontend/              # Static demo console mounted at /demo
+├─ frontend/              # Static demo console plus admin SPA mounted at /demo and /admin
 ├─ nginx/                 # reverse proxy + LB config
 ├─ postgres/              # init.sql, tuning
 ├─ docs/                  # architecture, ER diagram, BPMN, ADRs
