@@ -33,6 +33,28 @@ class ProfessorRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ProfessorScheduleSlotRead(BaseModel):
+    day_of_week: str
+    start_time: str
+    end_time: str
+    room_id: int | None
+    room_label: str | None
+
+
+class ProfessorSectionDetailRead(BaseModel):
+    section_id: int
+    course_offering_id: int
+    course_code: str
+    course_title: str
+    section_code: str
+    capacity: int
+    room_selection_mode: str
+    status: str
+    semester_name: str | None
+    current_room: str | None
+    schedules: list[ProfessorScheduleSlotRead]
+
+
 class RoomCreate(BaseModel):
     building: str | None = Field(default=None, max_length=80)
     room_number: str = Field(min_length=1, max_length=40)
@@ -91,6 +113,17 @@ class ProfessorSectionRead(BaseModel):
     capacity: int
     room_selection_mode: str
     status: str
+
+
+class ProfessorTimetableItemRead(BaseModel):
+    section_id: int
+    course_code: str
+    course_title: str
+    section_code: str
+    day_of_week: str
+    start_time: str
+    end_time: str
+    room_label: str | None
 
 
 class RoomOptionsResponse(BaseModel):

@@ -41,6 +41,10 @@ class RoomService:
         professors = list(self.db.execute(select(models.Professor)).scalars())
         return [self._professor_read(p) for p in professors]
 
+    def get_professor_profile(self, user_id: int) -> schemas.ProfessorRead:
+        professor = self._get_professor_by_user(user_id)
+        return self._professor_read(professor)
+
     def create_room(self, payload: schemas.RoomCreate) -> schemas.RoomRead:
         existing = self.db.execute(
             select(models.Room).where(
@@ -117,6 +121,45 @@ class RoomService:
         stmt = select(models.Section).where(models.Section.professor_id == professor.id)
         sections = list(self.db.execute(stmt).scalars())
         return [self._professor_section_read(section) for section in sections]
+
+    def get_professor_section_detail(
+        self,
+        *,
+        user_id: int,
+        section_id: int,
+    ) -> schemas.ProfessorSectionDetailRead:
+        professor = self._get_professor_by_user(user_id)
+        section = self._get_section(section_id)
+        if section.professor_id != professor.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your section.")
+        return self._professor_section_detail_read(section)
+
+    def get_professor_timetable(self, *, user_id: int) -> list[schemas.ProfessorTimetableItemRead]:
+        professor = self._get_professor_by_user(user_id)
+        stmt = select(models.Section).where(models.Section.professor_id == professor.id)
+        sections = list(self.db.execute(stmt).scalars())
+
+        items: list[schemas.ProfessorTimetableItemRead] = []
+        for section in sections:
+            offering = self.db.get(models.CourseOffering, section.course_offering_id)
+            course = self.db.get(models.Course, offering.course_id) if offering else None
+            for schedule in section.schedules:
+                room_label = self._room_label(schedule.room_id) or self._current_room_label(
+                    section.id
+                )
+                items.append(
+                    schemas.ProfessorTimetableItemRead(
+                        section_id=section.id,
+                        course_code=course.code if course else "UNKNOWN",
+                        course_title=course.title if course else "Unknown course",
+                        section_code=section.section_code,
+                        day_of_week=schedule.day_of_week,
+                        start_time=schedule.start_time,
+                        end_time=schedule.end_time,
+                        room_label=room_label,
+                    )
+                )
+        return sorted(items, key=lambda item: (item.day_of_week, item.start_time, item.course_code))
 
     def room_options(self, *, user_id: int, section_id: int) -> schemas.RoomOptionsResponse:
         professor = self._get_professor_by_user(user_id)
@@ -271,3 +314,65 @@ class RoomService:
             room_selection_mode=section.room_selection_mode,
             status=section.status,
         )
+
+    def _professor_section_detail_read(
+        self,
+        section: models.Section,
+    ) -> schemas.ProfessorSectionDetailRead:
+        offering = self.db.get(models.CourseOffering, section.course_offering_id)
+        course = self.db.get(models.Course, offering.course_id) if offering else None
+        semester = self.db.get(models.Semester, offering.semester_id) if offering else None
+        schedules = [
+            schemas.ProfessorScheduleSlotRead(
+                day_of_week=schedule.day_of_week,
+                start_time=schedule.start_time,
+                end_time=schedule.end_time,
+                room_id=schedule.room_id,
+                room_label=self._room_label(schedule.room_id)
+                or self._current_room_label(section.id),
+            )
+            for schedule in section.schedules
+        ]
+        return schemas.ProfessorSectionDetailRead(
+            section_id=section.id,
+            course_offering_id=section.course_offering_id,
+            course_code=course.code if course else "UNKNOWN",
+            course_title=course.title if course else "Unknown course",
+            section_code=section.section_code,
+            capacity=section.capacity,
+            room_selection_mode=section.room_selection_mode,
+            status=section.status,
+            semester_name=semester.name if semester else None,
+            current_room=self._current_room_label(section.id),
+            schedules=schedules,
+        )
+
+    def _room_label(self, room_id: int | None) -> str | None:
+        if room_id is None:
+            return None
+        room = self.db.get(models.Room, room_id)
+        if room is None:
+            return None
+        if room.building:
+            return f"{room.building}-{room.room_number}"
+        return room.room_number
+
+    def _current_room_label(self, section_id: int) -> str | None:
+        preferred_preference = self.db.execute(
+            select(models.ProfessorRoomPreference).where(
+                models.ProfessorRoomPreference.section_id == section_id,
+                models.ProfessorRoomPreference.status == "selected",
+            )
+        ).scalar_one_or_none()
+        if preferred_preference is not None:
+            return self._room_label(preferred_preference.room_id)
+
+        preferred_allocation = self.db.execute(
+            select(models.RoomAllocation).where(
+                models.RoomAllocation.section_id == section_id,
+                models.RoomAllocation.is_preferred.is_(True),
+            )
+        ).scalar_one_or_none()
+        if preferred_allocation is not None:
+            return self._room_label(preferred_allocation.room_id)
+        return None

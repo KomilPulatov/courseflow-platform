@@ -1,7 +1,14 @@
 from sqlalchemy.orm import Session
 
-from app.db.curriculum_seed_data import CURRICULA, PROGRAMS
-from app.db.models import AcademicProgram, Course, CurriculumCourse, Department, Major
+from app.db.curriculum_seed_data import CURRICULA, EQUIVALENCIES, PROGRAMS
+from app.db.models import (
+    AcademicProgram,
+    Course,
+    CourseEquivalency,
+    CurriculumCourse,
+    Department,
+    Major,
+)
 from app.db.session import SessionLocal
 
 DEPARTMENTS = {
@@ -140,6 +147,36 @@ def get_or_create_curriculum_course(
     return curriculum_course
 
 
+def get_or_create_course_equivalency(
+    db: Session,
+    *,
+    left_course_id: int,
+    right_course_id: int,
+    equivalence_type: str,
+) -> CourseEquivalency:
+    low_id = min(left_course_id, right_course_id)
+    high_id = max(left_course_id, right_course_id)
+    equivalency = (
+        db.query(CourseEquivalency)
+        .filter(
+            CourseEquivalency.course_id == low_id,
+            CourseEquivalency.equivalent_course_id == high_id,
+        )
+        .first()
+    )
+    if equivalency is None:
+        equivalency = CourseEquivalency(
+            course_id=low_id,
+            equivalent_course_id=high_id,
+            equivalence_type=equivalence_type,
+        )
+        db.add(equivalency)
+        db.flush()
+    else:
+        equivalency.equivalence_type = equivalence_type
+    return equivalency
+
+
 def seed_official_curricula(db: Session) -> None:
     departments = {
         code: get_or_create_department(db, code=code, name=name)
@@ -182,6 +219,36 @@ def seed_official_curricula(db: Session) -> None:
                 category=category,
                 is_mandatory=is_mandatory,
             )
+
+    for (
+        left_code,
+        left_title,
+        left_credits,
+        right_code,
+        right_title,
+        right_credits,
+        equivalence_type,
+    ) in EQUIVALENCIES:
+        left_course = get_or_create_course(
+            db,
+            department_id=departments[course_department_code(left_code)].id,
+            code=left_code,
+            title=left_title,
+            credits=left_credits,
+        )
+        right_course = get_or_create_course(
+            db,
+            department_id=departments[course_department_code(right_code)].id,
+            code=right_code,
+            title=right_title,
+            credits=right_credits,
+        )
+        get_or_create_course_equivalency(
+            db,
+            left_course_id=left_course.id,
+            right_course_id=right_course.id,
+            equivalence_type=equivalence_type,
+        )
 
 
 def seed_official_curricula_with_commit(db: Session) -> None:
