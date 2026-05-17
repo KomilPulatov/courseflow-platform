@@ -48,6 +48,11 @@
   transform: translateY(-1px);
 }
 
+.logout-button[hidden],
+#headerTimetableLink[hidden] {
+  display: none !important;
+}
+
 .sidebar-profile {
   padding: 20px 24px;
   border-bottom: 1px solid var(--border);
@@ -63,6 +68,30 @@
   color: var(--blue-900);
   font-weight: 600;
   text-transform: uppercase;
+}
+
+.sidebar-profile__meta {
+  margin-top: 10px;
+  color: var(--ink-700);
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.sidebar-profile__hint {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  color: var(--ink-700);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+#sidebarNav {
+  display: none;
+}
+
+body.is-authenticated #sidebarNav {
+  display: block;
 }
 
 .sidebar-nav__item {
@@ -94,6 +123,12 @@
   background: var(--panel);
   box-shadow: var(--shadow);
   padding: 22px 24px;
+}
+
+.content-card--hero {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(238, 246, 255, 0.92)),
+    var(--panel);
 }
 
 .content-card__header {
@@ -175,6 +210,11 @@
   font-size: 1.7rem;
   font-weight: 700;
   color: var(--blue-950);
+}
+
+.stat-tile__value--compact {
+  font-size: 1.05rem;
+  line-height: 1.35;
 }
 
 .login-card {

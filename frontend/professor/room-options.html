@@ -13,10 +13,10 @@
           <img src="/portal-assets/images/iut-logo.gif" alt="Inha University in Tashkent" />
         </div>
         <div class="header-links">
-          <a href="/professor/timetable">Timetable</a>
-          <span class="header-links__divider">|</span>
+          <a id="headerTimetableLink" href="/professor/timetable" hidden>Timetable</a>
+          <span id="headerLinksDivider" class="header-links__divider" hidden>|</span>
           <a href="https://class.inha.uz/" target="_blank" rel="noreferrer">e-Class</a>
-          <button id="logoutButton" class="logout-button" type="button">Logout</button>
+          <button id="logoutButton" class="logout-button" type="button" hidden>Logout</button>
         </div>
       </div>
     </header>
@@ -24,17 +24,25 @@
     <div class="portal-layout">
       <aside class="portal-sidebar">
         <div class="sidebar-profile">
-          <div id="sidebarSchool" class="sidebar-profile__school">School of Computer and Information Engineering</div>
-          <div id="sidebarProfessorName" class="sidebar-profile__name">Professor session required</div>
+          <div id="sidebarSchool" class="sidebar-profile__school">Professor Portal</div>
+          <div id="sidebarProfessorName" class="sidebar-profile__name">Professor Session Required</div>
+          <div id="sidebarProfileMeta" class="sidebar-profile__meta"></div>
+          <div id="sidebarSessionHint" class="sidebar-profile__hint">
+            Sign in to load your department, assigned sections, room options, and timetable.
+          </div>
         </div>
-        <nav class="sidebar-nav">
+        <nav id="sidebarNav" class="sidebar-nav">
           <a class="sidebar-nav__item" href="/professor"><span>Professor Home</span><span class="sidebar-nav__plus">+</span></a>
           <a class="sidebar-nav__item is-active" href="/professor/sections"><span>My Sections</span><span class="sidebar-nav__plus">+</span></a>
           <a class="sidebar-nav__item" href="/professor/timetable"><span>Timetable</span><span class="sidebar-nav__plus">+</span></a>
         </nav>
       </aside>
 
-      <main class="portal-main">
+      <main
+        class="portal-main"
+        data-page-heading="Room Options"
+        data-page-description="Sign in to review the room pool allocated to your section and submit a room preference."
+      >
         <div id="pageAlert" class="inline-alert is-hidden"></div>
         <section id="loginCard" class="login-card">
           <h3>Professor Sign In</h3>
