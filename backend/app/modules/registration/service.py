@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.metrics import record_registration_event
 from app.db import models
 from app.modules.registration.errors import (
     AcademicYearNotAllowedError,
@@ -77,6 +78,7 @@ class RegistrationService:
 
         event_type = "RegistrationFailed"
         response_body: dict[str, Any] | None = None
+        registration_event: models.RegistrationEvent | None = None
         try:
             student, section, offering, course, semester = self._load_context(
                 student_id,
@@ -123,20 +125,32 @@ class RegistrationService:
                 request_hash=request_hash,
                 response_body=response_body,
             )
-            self._record_success(student.id, section.id, event_type, entity_id, response_body)
+            registration_event = self._record_success(
+                student.id,
+                section.id,
+                event_type,
+                entity_id,
+                response_body,
+            )
             self.db.commit()
         except RegistrationError as exc:
             self.db.rollback()
             self._record_failure_after_rollback(student_id, payload.section_id, exc)
+            record_registration_event("RegistrationFailed", "failed")
             raise
         except IntegrityError as exc:
             self.db.rollback()
             duplicate = DuplicateRegistrationError()
             self._record_failure_after_rollback(student_id, payload.section_id, duplicate)
+            record_registration_event("RegistrationFailed", "failed")
             raise duplicate from exc
 
         self.availability_publisher.publish_section_changed(payload.section_id)
-        self.event_publisher.publish_registration_event(event_type, response_body)
+        self.event_publisher.publish_registration_event(
+            event_type,
+            self._event_payload(registration_event, response_body),
+        )
+        record_registration_event(event_type, "success")
         return response_body
 
     def drop(self, student_id: int, enrollment_id: int) -> dict[str, str | int]:
@@ -160,7 +174,7 @@ class RegistrationService:
             entity_id=enrollment.id,
             payload=payload,
         )
-        self.repo.add_registration_event(
+        registration_event = self.repo.add_registration_event(
             student_id=student_id,
             section_id=enrollment.section_id,
             event_type="StudentDropped",
@@ -168,7 +182,11 @@ class RegistrationService:
         )
         self.db.commit()
         self.availability_publisher.publish_section_changed(enrollment.section_id)
-        self.event_publisher.publish_registration_event("StudentDropped", payload)
+        self.event_publisher.publish_registration_event(
+            "StudentDropped",
+            self._event_payload(registration_event, payload),
+        )
+        record_registration_event("StudentDropped", "success")
         return payload
 
     def list_current(self, student_id: int) -> list[RegistrationListItem]:
@@ -498,7 +516,7 @@ class RegistrationService:
         event_type: str,
         entity_id: int,
         payload: dict[str, Any],
-    ) -> None:
+    ) -> models.RegistrationEvent:
         audit_event = (
             "student_registered" if event_type == "StudentRegistered" else "student_waitlisted"
         )
@@ -509,7 +527,7 @@ class RegistrationService:
             entity_id=entity_id,
             payload=payload,
         )
-        self.repo.add_registration_event(
+        return self.repo.add_registration_event(
             student_id=student_id,
             section_id=section_id,
             event_type=event_type,
@@ -536,6 +554,18 @@ class RegistrationService:
             payload={"error": exc.code, "message": exc.message},
         )
         self.db.commit()
+
+    @staticmethod
+    def _event_payload(
+        event: models.RegistrationEvent | None,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        enriched = dict(payload)
+        if event is not None:
+            enriched["registration_event_id"] = event.id
+            enriched["student_id"] = event.student_id
+            enriched["section_id"] = event.section_id
+        return enriched
 
     @staticmethod
     def _is_period_open(period: models.RegistrationPeriod) -> bool:

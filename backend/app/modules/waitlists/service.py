@@ -3,12 +3,18 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import models
+from app.modules.registration.publishers import AvailabilityPublisher, NoopAvailabilityPublisher
 from app.modules.waitlists import schemas
 
 
 class WaitlistService:
-    def __init__(self, db: Session) -> None:
+    def __init__(
+        self,
+        db: Session,
+        availability_publisher: AvailabilityPublisher | None = None,
+    ) -> None:
         self.db = db
+        self.availability_publisher = availability_publisher or NoopAvailabilityPublisher()
 
     def list_current(self, student_id: int) -> list[schemas.WaitlistItem]:
         entries = list(
@@ -57,6 +63,7 @@ class WaitlistService:
         )
         self.db.add(entry)
         self.db.commit()
+        self.availability_publisher.publish_section_changed(payload.section_id)
         return self._read(entry)
 
     def cancel(self, student_id: int, waitlist_entry_id: int) -> schemas.WaitlistDeleteResponse:
@@ -68,6 +75,7 @@ class WaitlistService:
             )
         entry.status = "cancelled"
         self.db.commit()
+        self.availability_publisher.publish_section_changed(entry.section_id)
         return schemas.WaitlistDeleteResponse(status="cancelled", waitlist_entry_id=entry.id)
 
     def _read(self, entry: models.WaitlistEntry) -> schemas.WaitlistItem:
