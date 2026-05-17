@@ -44,10 +44,11 @@ grafana
 otel-collector
 ```
 
-Current repository implementation serves the static demo frontend from FastAPI at `/demo`;
-Nginx proxies `/demo`, `/api/*`, and `/ws/*` to the backend pool.
-The local Compose stack also includes Tempo and Loki so Grafana can show trace
-and log-query evidence for the final report.
+Current repository implementation builds the React frontend in its own Docker
+image and serves it from the `frontend` Nginx container. The public `nginx`
+service routes `/` to frontend, and `/api/*`, `/ws/*`, `/docs`, `/health`, and
+`/metrics` to the backend pool. The local Compose stack also includes Tempo and
+Loki so Grafana can show trace and log-query evidence for the final report.
 
 ## 3. Docker dependency graph
 
@@ -101,7 +102,7 @@ server {
     listen 80;
 
     location / {
-        proxy_pass http://frontend:3000;
+        proxy_pass http://frontend:80;
     }
 
     location /api/ {
@@ -125,15 +126,14 @@ server {
 
 ```env
 APP_ENV=production
-DATABASE_URL=postgresql+asyncpg://crsp:password@postgres:5432/crsp
+DATABASE_URL=postgresql://crsp:password@postgres:5432/crsp
 REDIS_URL=redis://redis:6379/0
 RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
-JWT_SECRET=change-me
-ACCESS_TOKEN_EXPIRE_MINUTES=60
+SECRET_KEY=change-me-to-a-long-random-string
+JWT_EXPIRE_MINUTES=60
 
-INS_MODE=mock
-INS_BASE_URL=https://ins.inha.uz
-INS_TIMEOUT_SECONDS=10
+PORTAL_BASE_URL=https://ins.inha.uz
+HTTP_TIMEOUT=10
 
 OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
 ```
@@ -178,10 +178,11 @@ Dependency health:
 6. Run `docker compose up -d`.
 7. Run migrations.
 8. Seed data.
-9. Check `/docs`.
-10. Check Nginx public route.
-11. Check WebSocket route.
-12. Capture screenshots for report.
+9. Check `/` for the React frontend.
+10. Check `/docs` for OpenAPI.
+11. Check Nginx public route.
+12. Check WebSocket route.
+13. Capture screenshots for report.
 
 ## 9. Repository hygiene
 
