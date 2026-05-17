@@ -16,7 +16,7 @@ Built by **team Celion**. See `docs/technical-specification.md` for the full spe
 - **Realtime:** WebSockets (live seat updates)
 - **Gateway:** Nginx (reverse proxy + load balance across two backend replicas)
 - **Observability:** OpenTelemetry, Prometheus, Grafana, Loki/Tempo
-- **Frontend:** Static demo console served by FastAPI at `/demo`
+- **Frontend:** React + TypeScript + Tailwind student app (`frontend-student/`); static demo console served at `/demo`
 - **Package manager:** [`uv`](https://docs.astral.sh/uv/) (single source of truth: `backend/pyproject.toml` + `backend/uv.lock`)
 
 ---
@@ -108,6 +108,7 @@ courseflow-platform/
 │     ├─ modules/         # auth / courses / registration / waitlist / timetable / audit
 │     └─ tests/           # unit / integration / load
 ├─ frontend/              # Static demo console mounted at /demo
+├─ frontend-student/      # React + TypeScript student app (Vite, Tailwind, React Router v6)
 ├─ nginx/                 # reverse proxy + LB config
 ├─ postgres/              # init.sql, tuning
 ├─ docs/                  # architecture, ER diagram, BPMN, ADRs
