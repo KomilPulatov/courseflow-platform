@@ -50,3 +50,4 @@ coverage.xml
 *.egg-info/
 
 .codex
+CLAUDE.md
