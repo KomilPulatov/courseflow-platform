@@ -39,7 +39,8 @@ services:
 
   backend-1: &backend
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     environment:
       DATABASE_URL: postgresql://crsp:crsp@postgres:5432/crsp
       POSTGRES_HOST: postgres

@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.api.pagination import Page
 from app.core.logging import get_logger
 from app.db import models
 from app.modules.scheduling import schemas
@@ -68,6 +69,53 @@ class SchedulingService:
                 )
                 for item in items
             ],
+        )
+
+    def list_runs(
+        self,
+        *,
+        semester_id: int | None,
+        status_value: str | None,
+        limit: int,
+        offset: int,
+    ) -> Page[schemas.SuggestionRunSummary]:
+        stmt = select(models.TimetableSuggestionRun)
+        count_stmt = select(func.count()).select_from(models.TimetableSuggestionRun)
+        if semester_id is not None:
+            stmt = stmt.where(models.TimetableSuggestionRun.semester_id == semester_id)
+            count_stmt = count_stmt.where(models.TimetableSuggestionRun.semester_id == semester_id)
+        if status_value is not None:
+            stmt = stmt.where(models.TimetableSuggestionRun.status == status_value)
+            count_stmt = count_stmt.where(models.TimetableSuggestionRun.status == status_value)
+        runs = list(
+            self.db.execute(
+                stmt.order_by(models.TimetableSuggestionRun.created_at.desc())
+                .offset(offset)
+                .limit(limit)
+            ).scalars()
+        )
+        semesters = {
+            semester.id: semester.name
+            for semester in self.db.execute(select(models.Semester)).scalars()
+        }
+        total = int(self.db.execute(count_stmt).scalar_one())
+        return Page(
+            items=[
+                schemas.SuggestionRunSummary(
+                    id=run.id,
+                    semester_id=run.semester_id,
+                    semester_name=semesters.get(run.semester_id, "Unknown semester"),
+                    strategy=run.strategy,
+                    status=run.status,
+                    created_at=run.created_at,
+                    completed_at=run.completed_at,
+                    approved_at=run.approved_at,
+                )
+                for run in runs
+            ],
+            total=total,
+            limit=limit,
+            offset=offset,
         )
 
     def approve_run(self, run_id: int) -> schemas.SuggestionApproveResponse:

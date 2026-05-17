@@ -13,15 +13,16 @@ Built by team Celion.
 
 ## Stack
 
-- Backend: FastAPI, SQLAlchemy 2, Alembic, Pydantic v2
-- Frontend: one React, TypeScript, Vite, Tailwind, React Router app in `frontend/`
-- Database: PostgreSQL, Redis
-- Async: RabbitMQ and Celery
-- Realtime: WebSockets
-- Gateway: Nginx reverse proxy with two backend replicas
-- Observability: OpenTelemetry, Prometheus, Grafana, Loki, Tempo
-- Backend package manager: uv
-- Frontend package manager: npm
+- **Backend:** FastAPI, SQLAlchemy 2, Alembic, Pydantic v2
+- **Database:** PostgreSQL (source of truth) + Redis (cache, idempotency keys, pub/sub)
+- **Async:** RabbitMQ + Celery worker
+- **Realtime:** WebSockets (live seat updates)
+- **Gateway:** Nginx (reverse proxy + load balance across two backend replicas)
+- **Observability:** OpenTelemetry, Prometheus, Grafana, Loki/Tempo
+- **Frontend:** React + TypeScript + Vite single-page app serving both `/demo` and `/admin`
+- **Package manager:** [`uv`](https://docs.astral.sh/uv/) (single source of truth: `backend/pyproject.toml` + `backend/uv.lock`)
+
+---
 
 ## Prerequisites
 
@@ -45,17 +46,26 @@ Backend:
 cd backend
 uv sync
 uv run alembic upgrade head
-uv run python -m app.db.demo_seed
-uv run uvicorn app.main:app --reload
+uv run python -m app.db.demo_seed     # demo admin + catalog data
+uv run uvicorn app.main:app --reload  # http://localhost:8000/docs
+
+# 3. Frontend
+cd ../frontend
+npm install
+npm run build                         # creates frontend/dist for FastAPI to serve
+
+# 4. (Optional but recommended) install pre-commit hooks
+cd ..
+uv tool install pre-commit
+pre-commit install
 ```
 
 Frontend:
 
-```bash
-cd frontend
-npm ci
-npm run dev
-```
+- http://localhost:8000/docs for the OpenAPI UI
+- http://localhost:8000/demo for the seeded demo console
+- http://localhost:8000/admin for the admin console
+- http://localhost:8000/health for the health check
 
 Open:
 
@@ -70,7 +80,16 @@ local backend.
 
 ## Docker Stack
 
-From the repository root:
+Frontend commands run from `frontend/`:
+
+| Goal | Command |
+|---|---|
+| Install deps | `npm install` |
+| Run dev server | `npm run dev` |
+| Run tests | `npm test` |
+| Build production assets | `npm run build` |
+
+From the repo root, the full local stack can be validated with:
 
 ```bash
 docker compose config
@@ -116,13 +135,24 @@ Frontend commands run from `frontend/`.
 
 ```text
 courseflow-platform/
-  backend/               FastAPI app, migrations, tests
-  frontend/              React app for student, professor, and app utility routes
-  nginx/                 Public reverse proxy config
-  postgres/              PostgreSQL init scripts
-  observability/         OTel, Prometheus, Grafana, Loki, Tempo config
-  docs/                  Requirements, architecture, API, deployment notes
-  .github/workflows/     CI for backend, frontend, and Compose config
+├─ backend/               # FastAPI app
+│  ├─ pyproject.toml      # uv-managed deps + ruff/pytest config
+│  ├─ uv.lock             # locked dependency graph (commit this)
+│  └─ app/
+│     ├─ main.py
+│     ├─ api/v1/          # HTTP routers
+│     ├─ core/            # config, security, logging, telemetry, rate limiter
+│     ├─ db/              # session, transaction helpers
+│     ├─ modules/         # auth / courses / registration / waitlist / timetable / audit
+│     └─ tests/           # unit / integration / load
+├─ frontend/              # React + TypeScript + Vite app mounted at /demo and /admin
+├─ nginx/                 # reverse proxy + LB config
+├─ postgres/              # init.sql, tuning
+├─ docs/                  # architecture, ER diagram, BPMN, ADRs
+├─ .github/workflows/     # CI
+├─ .env.example
+├─ CONTRIBUTING.md
+└─ CHANGELOG.md
 ```
 
 ## Pull Request Standard
@@ -132,6 +162,10 @@ Before merging a PR, the branch should pass:
 ```bash
 cd backend
 uv run ruff check . && uv run ruff format --check . && uv run pytest
+
+cd ../frontend
+npm test && npm run build
+```
 
 cd ../frontend
 npm ci && npm run lint && npm run build

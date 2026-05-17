@@ -14,7 +14,6 @@ docker compose up -d
 
 ```text
 nginx
-frontend
 backend-1
 backend-2
 postgres
@@ -32,7 +31,6 @@ Minimum acceptable:
 
 ```text
 nginx
-frontend
 backend-1
 backend-2
 postgres
@@ -44,17 +42,16 @@ grafana
 otel-collector
 ```
 
-Current repository implementation builds the React frontend in its own Docker
-image and serves it from the `frontend` Nginx container. The public `nginx`
-service routes `/` to frontend, and `/api/*`, `/ws/*`, `/docs`, `/health`, and
-`/metrics` to the backend pool. The local Compose stack also includes Tempo and
-Loki so Grafana can show trace and log-query evidence for the final report.
+Current repository implementation builds the React + Vite frontend inside the backend Docker image
+and serves the compiled SPA from FastAPI at both `/demo` and `/admin`.
+Nginx proxies `/demo`, `/admin`, `/assets/*`, `/api/*`, and `/ws/*` to the backend pool.
+The local Compose stack also includes Tempo and Loki so Grafana can show trace
+and log-query evidence for the final report.
 
 ## 3. Docker dependency graph
 
 ```mermaid
 flowchart TD
-    nginx --> frontend
     nginx --> backend1
     nginx --> backend2
 
@@ -101,10 +98,6 @@ upstream backend_pool {
 server {
     listen 80;
 
-    location / {
-        proxy_pass http://frontend:80;
-    }
-
     location /api/ {
         proxy_pass http://backend_pool;
         proxy_set_header Host $host;
@@ -117,6 +110,11 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+
+    location / {
+        proxy_pass http://backend_pool;
         proxy_set_header Host $host;
     }
 }

@@ -44,6 +44,7 @@ class Professor(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     department_name: Mapped[str | None] = mapped_column(String(255))
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
@@ -150,6 +151,7 @@ class Department(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
@@ -160,6 +162,7 @@ class Major(Base):
     department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"), nullable=False)
     code: Mapped[str] = mapped_column(String(20), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     __table_args__ = (
@@ -215,6 +218,7 @@ class Course(Base):
     description: Mapped[str | None] = mapped_column(Text)
     course_type: Mapped[str | None] = mapped_column(String(40))
     is_repeatable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     __table_args__ = (
