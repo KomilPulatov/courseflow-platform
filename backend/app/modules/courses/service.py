@@ -1,6 +1,8 @@
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.pagination import Page
 from app.db import models
 from app.modules.courses import schemas
 from app.modules.courses.repository import CourseCatalogRepository
@@ -14,7 +16,12 @@ class CourseCatalogService:
 
     def list_departments(self) -> list[schemas.DepartmentRead]:
         return [
-            schemas.DepartmentRead(id=department.id, code=department.code, name=department.name)
+            schemas.DepartmentRead(
+                id=department.id,
+                code=department.code,
+                name=department.name,
+                is_active=department.is_active,
+            )
             for department in self.repo.list_departments()
         ]
 
@@ -29,7 +36,66 @@ class CourseCatalogService:
             )
         department = self.repo.create_department(code=payload.code, name=payload.name)
         self.db.commit()
-        return schemas.DepartmentRead(id=department.id, code=department.code, name=department.name)
+        return schemas.DepartmentRead(
+            id=department.id,
+            code=department.code,
+            name=department.name,
+            is_active=department.is_active,
+        )
+
+    def update_department(
+        self,
+        department_id: int,
+        payload: schemas.DepartmentUpdate,
+    ) -> schemas.DepartmentRead:
+        department = self.repo.get_department(department_id)
+        if department is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Department not found.",
+            )
+        updates = payload.model_dump(exclude_unset=True)
+        if (
+            "code" in updates
+            and updates["code"] != department.code
+            and self.repo.department_code_exists(updates["code"])
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Department code already exists.",
+            )
+        if (
+            "name" in updates
+            and updates["name"] != department.name
+            and self.repo.department_name_exists(updates["name"])
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Department name already exists.",
+            )
+        if updates.get("is_active") is False:
+            if any(major.is_active for major in self.repo.list_majors(department_id=department.id)):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Archive active majors before archiving this department.",
+                )
+            if any(
+                course.is_active
+                for course in self.repo.list_courses(department_id=department.id)
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Archive active courses before archiving this department.",
+                )
+        for field, value in updates.items():
+            setattr(department, field, value)
+        self.db.commit()
+        return schemas.DepartmentRead(
+            id=department.id,
+            code=department.code,
+            name=department.name,
+            is_active=department.is_active,
+        )
 
     def list_majors(self, *, department_id: int | None = None) -> list[schemas.MajorRead]:
         return [
@@ -38,6 +104,7 @@ class CourseCatalogService:
                 department_id=major.department_id,
                 code=major.code,
                 name=major.name,
+                is_active=major.is_active,
             )
             for major in self.repo.list_majors(department_id=department_id)
         ]
@@ -67,6 +134,48 @@ class CourseCatalogService:
             department_id=major.department_id,
             code=major.code,
             name=major.name,
+            is_active=major.is_active,
+        )
+
+    def update_major(self, major_id: int, payload: schemas.MajorUpdate) -> schemas.MajorRead:
+        major = self.repo.get_major(major_id)
+        if major is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Major not found.")
+        updates = payload.model_dump(exclude_unset=True)
+        department_id = updates.get("department_id", major.department_id)
+        if self.repo.get_department(department_id) is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Department not found.",
+            )
+        next_code = updates.get("code", major.code)
+        next_name = updates.get("name", major.name)
+        conflicting_major = next(
+            (
+                candidate
+                for candidate in self.repo.list_majors(department_id=department_id)
+                if candidate.id != major.id
+                and (
+                    candidate.code.lower() == next_code.lower()
+                    or candidate.name.lower() == next_name.lower()
+                )
+            ),
+            None,
+        )
+        if conflicting_major is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A major with this code or name already exists in the department.",
+            )
+        for field, value in updates.items():
+            setattr(major, field, value)
+        self.db.commit()
+        return schemas.MajorRead(
+            id=major.id,
+            department_id=major.department_id,
+            code=major.code,
+            name=major.name,
+            is_active=major.is_active,
         )
 
     def list_semesters(self) -> list[schemas.SemesterRead]:
@@ -84,8 +193,63 @@ class CourseCatalogService:
         self.db.commit()
         return schemas.SemesterRead(id=semester.id, name=semester.name, status=semester.status)
 
-    def list_admin_courses(self) -> list[schemas.CourseSummary]:
-        return [self._build_course_summary(course) for course in self.repo.list_courses()]
+    def update_semester(
+        self,
+        semester_id: int,
+        payload: schemas.SemesterUpdate,
+    ) -> schemas.SemesterRead:
+        semester = self.repo.get_semester(semester_id)
+        if semester is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Semester not found.")
+        updates = payload.model_dump(exclude_unset=True)
+        if (
+            "name" in updates
+            and updates["name"] != semester.name
+            and self.repo.semester_name_exists(updates["name"])
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Semester name already exists.",
+            )
+        if updates.get("status") == "archived" and any(
+            offering.status in {"draft", "active"}
+            for offering in self.repo.list_course_offerings(semester_id=semester.id)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Archive active course offerings before archiving this semester.",
+            )
+        for field, value in updates.items():
+            setattr(semester, field, value)
+        self.db.commit()
+        return schemas.SemesterRead(id=semester.id, name=semester.name, status=semester.status)
+
+    def list_admin_courses(
+        self,
+        *,
+        search: str | None,
+        department_id: int | None,
+        is_active: bool | None,
+        limit: int,
+        offset: int,
+    ) -> Page[schemas.CourseSummary]:
+        courses = self.repo.list_courses(
+            search=search,
+            department_id=department_id,
+            is_active=is_active,
+            limit=limit,
+            offset=offset,
+        )
+        return Page(
+            items=[self._build_course_summary(course) for course in courses],
+            total=self.repo.count_courses(
+                search=search,
+                department_id=department_id,
+                is_active=is_active,
+            ),
+            limit=limit,
+            offset=offset,
+        )
 
     def create_course(self, payload: schemas.CourseCreate) -> schemas.CourseDetail:
         if (
@@ -109,11 +273,16 @@ class CourseCatalogService:
             )
         course = self.repo.create_course(**payload.model_dump())
         self.db.commit()
-        return self.get_course_detail(course.id)
+        return self.get_course_detail(course.id, include_inactive=True)
 
-    def get_course_detail(self, course_id: int) -> schemas.CourseDetail:
+    def get_course_detail(
+        self,
+        course_id: int,
+        *,
+        include_inactive: bool = False,
+    ) -> schemas.CourseDetail:
         course = self.repo.get_course(course_id)
-        if course is None:
+        if course is None or (not include_inactive and not course.is_active):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
         department = (
             self.repo.get_department(course.department_id) if course.department_id else None
@@ -141,8 +310,50 @@ class CourseCatalogService:
             description=course.description,
             course_type=course.course_type,
             is_repeatable=course.is_repeatable,
+            is_active=course.is_active,
             prerequisites=prerequisites,
         )
+
+    def update_course(self, course_id: int, payload: schemas.CourseUpdate) -> schemas.CourseDetail:
+        course = self.repo.get_course(course_id)
+        if course is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+        updates = payload.model_dump(exclude_unset=True)
+        if (
+            "department_id" in updates
+            and updates["department_id"] is not None
+            and self.repo.get_department(updates["department_id"]) is None
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Department not found.",
+            )
+        next_code = updates.get("code", course.code)
+        next_title = updates.get("title", course.title)
+        next_credits = updates.get("credits", course.credits)
+        existing = self.repo.get_course_by_identity(
+            code=next_code,
+            title=next_title,
+            credits=next_credits,
+        )
+        if existing is not None and existing.id != course.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An identical course already exists.",
+            )
+        if updates.get("is_active") is False and any(
+            offering.status in {"draft", "active"}
+            for offering in self.repo.list_course_offerings()
+            if offering.course_id == course.id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Archive active course offerings before archiving this course.",
+            )
+        for field, value in updates.items():
+            setattr(course, field, value)
+        self.db.commit()
+        return self.get_course_detail(course.id, include_inactive=True)
 
     def replace_prerequisites(
         self,
@@ -225,6 +436,45 @@ class CourseCatalogService:
             rule_metadata=rule.rule_metadata,
         )
 
+    def update_eligibility_rule(
+        self,
+        course_id: int,
+        rule_id: int,
+        payload: schemas.CourseEligibilityRuleUpdate,
+    ) -> schemas.CourseEligibilityRuleRead:
+        if self.repo.get_course(course_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+        rule = self.repo.get_course_rule(rule_id)
+        if rule is None or rule.course_id != course_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Eligibility rule not found.",
+            )
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            setattr(rule, field, value)
+        self.db.commit()
+        return schemas.CourseEligibilityRuleRead(
+            id=rule.id,
+            course_id=rule.course_id,
+            min_academic_year=rule.min_academic_year,
+            min_gpa=float(rule.min_gpa) if rule.min_gpa is not None else None,
+            allowed_department_ids=rule.allowed_department_ids,
+            allowed_major_ids=rule.allowed_major_ids,
+            rule_metadata=rule.rule_metadata,
+        )
+
+    def delete_eligibility_rule(self, course_id: int, rule_id: int) -> None:
+        if self.repo.get_course(course_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+        rule = self.repo.get_course_rule(rule_id)
+        if rule is None or rule.course_id != course_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Eligibility rule not found.",
+            )
+        self.repo.delete_course_rule(rule)
+        self.db.commit()
+
     def list_eligibility_rules(
         self,
         course_id: int,
@@ -282,6 +532,32 @@ class CourseCatalogService:
         self.db.commit()
         return self._build_course_offering_read(offering)
 
+    def update_course_offering(
+        self,
+        offering_id: int,
+        payload: schemas.CourseOfferingUpdate,
+    ) -> schemas.CourseOfferingRead:
+        offering = self.repo.get_course_offering(offering_id)
+        if offering is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Course offering not found.",
+            )
+        updates = payload.model_dump(exclude_unset=True)
+        if updates.get("status") == "archived" and any(
+            section.status in {"draft", "open"}
+            for section in self.repo.list_sections()
+            if section.course_offering_id == offering.id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Close active sections before archiving this offering.",
+            )
+        for field, value in updates.items():
+            setattr(offering, field, value)
+        self.db.commit()
+        return self._build_course_offering_read(offering)
+
     def list_sections(
         self,
         *,
@@ -292,6 +568,47 @@ class CourseCatalogService:
             self._build_section_summary(section)
             for section in self.repo.list_sections(course_id=course_id, semester_id=semester_id)
         ]
+
+    def list_public_sections(
+        self,
+        *,
+        course_id: int,
+        semester_id: int | None = None,
+    ) -> list[schemas.SectionSummary]:
+        sections: list[schemas.SectionSummary] = []
+        for section in self.repo.list_sections(course_id=course_id, semester_id=semester_id):
+            offering = self.repo.get_course_offering(section.course_offering_id)
+            if offering is None or offering.status != "active" or section.status == "cancelled":
+                continue
+            sections.append(self._build_section_summary(section))
+        return sections
+
+    def list_sections_page(
+        self,
+        *,
+        course_id: int | None,
+        semester_id: int | None,
+        status_value: str | None,
+        limit: int,
+        offset: int,
+    ) -> Page[schemas.SectionSummary]:
+        sections = self.repo.list_sections(
+            course_id=course_id,
+            semester_id=semester_id,
+            status=status_value,
+            limit=limit,
+            offset=offset,
+        )
+        return Page(
+            items=[self._build_section_summary(section) for section in sections],
+            total=self.repo.count_sections(
+                course_id=course_id,
+                semester_id=semester_id,
+                status=status_value,
+            ),
+            limit=limit,
+            offset=offset,
+        )
 
     def create_section(self, payload: schemas.SectionCreate) -> schemas.SectionSummary:
         offering = self.repo.get_course_offering(payload.course_offering_id)
@@ -328,6 +645,46 @@ class CourseCatalogService:
         self.db.commit()
         return self._build_section_summary(section)
 
+    def update_section(
+        self,
+        section_id: int,
+        payload: schemas.SectionUpdate,
+    ) -> schemas.SectionSummary:
+        section = self.repo.get_section(section_id)
+        if section is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Section not found.")
+        updates = payload.model_dump(exclude_unset=True)
+        if (
+            "professor_id" in updates
+            and updates["professor_id"] is not None
+            and self.repo.get_professor(updates["professor_id"]) is None
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Professor not found.",
+            )
+        if "section_code" in updates and updates["section_code"] != section.section_code:
+            existing = self.repo.get_section_by_code(
+                course_offering_id=section.course_offering_id,
+                section_code=updates["section_code"],
+            )
+            if existing is not None and existing.id != section.id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Section code already exists for this course offering.",
+                )
+        if "capacity" in updates:
+            enrolled_count = self.repo.count_active_enrollments(section.id)
+            if updates["capacity"] < enrolled_count:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Section capacity cannot be lower than active enrollment.",
+                )
+        for field, value in updates.items():
+            setattr(section, field, value)
+        self.db.commit()
+        return self._build_section_summary(section)
+
     def create_registration_period(
         self,
         payload: schemas.RegistrationPeriodCreate,
@@ -357,6 +714,51 @@ class CourseCatalogService:
             id=period.id,
             semester_id=period.semester_id,
             semester_name=semester.name,
+            opens_at=period.opens_at,
+            closes_at=period.closes_at,
+            status=period.status,
+        )
+
+    def update_registration_period(
+        self,
+        period_id: int,
+        payload: schemas.RegistrationPeriodUpdate,
+    ) -> schemas.RegistrationPeriodRead:
+        period = self.db.get(models.RegistrationPeriod, period_id)
+        if period is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Registration period not found.",
+            )
+        updates = payload.model_dump(exclude_unset=True)
+        next_opens_at = updates.get("opens_at", period.opens_at)
+        next_closes_at = updates.get("closes_at", period.closes_at)
+        if next_closes_at <= next_opens_at:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="closes_at must be later than opens_at.",
+            )
+        overlapping = self.db.execute(
+            select(models.RegistrationPeriod.id).where(
+                models.RegistrationPeriod.id != period.id,
+                models.RegistrationPeriod.semester_id == period.semester_id,
+                models.RegistrationPeriod.opens_at < next_closes_at,
+                models.RegistrationPeriod.closes_at > next_opens_at,
+            )
+        ).first()
+        if overlapping is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The semester already has an overlapping registration period.",
+            )
+        for field, value in updates.items():
+            setattr(period, field, value)
+        self.db.commit()
+        semester = self.repo.get_semester(period.semester_id)
+        return schemas.RegistrationPeriodRead(
+            id=period.id,
+            semester_id=period.semester_id,
+            semester_name=semester.name if semester else "Unknown",
             opens_at=period.opens_at,
             closes_at=period.closes_at,
             status=period.status,
@@ -412,7 +814,7 @@ class CourseCatalogService:
         summaries: list[schemas.CourseSummary] = []
         for course_id in sorted(course_ids):
             course = self.repo.get_course(course_id)
-            if course is None:
+            if course is None or not course.is_active:
                 continue
             if department_id is not None and course.department_id != department_id:
                 continue
@@ -474,6 +876,7 @@ class CourseCatalogService:
             course_type=course.course_type,
             active_offering_count=active_offering_count,
             active_section_count=active_section_count,
+            is_active=course.is_active,
         )
 
     def _build_course_offering_read(

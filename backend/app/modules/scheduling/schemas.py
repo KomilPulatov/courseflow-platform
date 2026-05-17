@@ -35,6 +35,7 @@ class SuggestionRunRead(BaseModel):
 class SuggestionRunSummary(BaseModel):
     id: int
     semester_id: int
+    semester_name: str
     strategy: str
     status: str
     created_at: datetime

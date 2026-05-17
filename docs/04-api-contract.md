@@ -132,11 +132,42 @@ Refreshes profile from INS for INS-verified students.
 
 ### POST `/admin/semesters`
 
+### PATCH `/admin/semesters/{semester_id}`
+
 ### POST `/admin/departments`
+
+### PATCH `/admin/departments/{department_id}`
 
 ### POST `/admin/majors`
 
+### PATCH `/admin/majors/{major_id}`
+
 ### POST `/admin/courses`
+
+### GET `/admin/courses`
+
+Paginated list response:
+
+```json
+{
+  "items": [],
+  "total": 0,
+  "limit": 25,
+  "offset": 0
+}
+```
+
+Query parameters:
+
+- `search`
+- `department_id`
+- `is_active`
+- `limit`
+- `offset`
+
+### GET `/admin/courses/{course_id}`
+
+### PATCH `/admin/courses/{course_id}`
 
 ### PUT `/admin/courses/{course_id}/prerequisites`
 
@@ -144,11 +175,23 @@ Replaces the full prerequisite set for the course in one transaction.
 
 ### POST `/admin/courses/{course_id}/eligibility-rules`
 
+### GET `/admin/courses/{course_id}/eligibility-rules`
+
+### PATCH `/admin/courses/{course_id}/eligibility-rules/{rule_id}`
+
+### DELETE `/admin/courses/{course_id}/eligibility-rules/{rule_id}`
+
 ### POST `/admin/professors`
+
+### PATCH `/admin/professors/{professor_id}`
 
 ### POST `/admin/rooms`
 
+### PATCH `/admin/rooms/{room_id}`
+
 ### POST `/admin/course-offerings`
+
+### PATCH `/admin/course-offerings/{offering_id}`
 
 ### POST `/admin/sections`
 
@@ -166,6 +209,20 @@ Request:
 }
 ```
 
+### GET `/admin/sections`
+
+Paginated list response using `{ items, total, limit, offset }`.
+
+Query parameters:
+
+- `course_id`
+- `semester_id`
+- `status`
+- `limit`
+- `offset`
+
+### PATCH `/admin/sections/{section_id}`
+
 ### POST `/admin/sections/{section_id}/room-allocations`
 
 Admin allocates room options.
@@ -179,7 +236,11 @@ Request:
 }
 ```
 
+### DELETE `/admin/sections/{section_id}/room-allocations/{room_id}`
+
 ### POST `/admin/registration-periods`
+
+### PATCH `/admin/registration-periods/{period_id}`
 
 Open or configure registration period.
 
@@ -187,9 +248,9 @@ Supporting list endpoints now available for the demo/admin console:
 
 - `GET /admin/majors?department_id=<id>`
 - `GET /admin/semesters`
-- `GET /admin/courses`
+- `GET /admin/courses?search=<term>&department_id=<id>&is_active=<bool>&limit=<n>&offset=<n>`
 - `GET /admin/course-offerings?semester_id=<id>`
-- `GET /admin/sections?course_id=<id>&semester_id=<id>`
+- `GET /admin/sections?course_id=<id>&semester_id=<id>&status=<status>&limit=<n>&offset=<n>`
 - `GET /admin/registration-periods?semester_id=<id>`
 
 ## 4. Professor flow
@@ -268,6 +329,19 @@ Response:
 ### GET `/admin/scheduling/suggestion-runs/{run_id}`
 
 Returns generated options.
+
+### GET `/admin/scheduling/suggestion-runs`
+
+Paginated list response using `{ items, total, limit, offset }`.
+
+Query parameters:
+
+- `semester_id`
+- `status`
+- `limit`
+- `offset`
+
+Each summary includes `semester_name`.
 
 ### POST `/admin/scheduling/suggestion-runs/{run_id}/approve`
 
@@ -456,4 +530,13 @@ Event:
 
 ### GET `/admin/audit-logs`
 
-Admin-only endpoint that returns recent audit log rows for the final demo and report screenshots.
+Admin-only paginated endpoint using `{ items, total, limit, offset }`.
+
+Query parameters:
+
+- `event_type`
+- `entity_type`
+- `created_from`
+- `created_to`
+- `limit`
+- `offset`

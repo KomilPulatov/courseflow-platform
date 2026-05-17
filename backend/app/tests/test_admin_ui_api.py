@@ -18,14 +18,14 @@ def create_admin_headers(db_session) -> dict[str, str]:
 def test_admin_spa_routes_return_index_html(client) -> None:
     dashboard = client.get("/admin")
     nested = client.get("/admin/courses/42/prerequisites")
-    script = client.get("/admin/assets/app.js")
+    demo = client.get("/demo")
 
     assert dashboard.status_code == 200
     assert nested.status_code == 200
-    assert script.status_code == 200
-    assert "CRSP Admin" in dashboard.text
-    assert "CRSP Admin" in nested.text
-    assert "application/javascript" in script.headers["content-type"]
+    assert demo.status_code == 200
+    assert '<div id="root"></div>' in dashboard.text
+    assert '<div id="root"></div>' in nested.text
+    assert '<div id="root"></div>' in demo.text
 
 
 def test_admin_can_list_course_eligibility_rules(client, db_session) -> None:
@@ -89,7 +89,10 @@ def test_admin_can_list_recent_scheduling_runs(client, db_session) -> None:
     assert first.status_code == 201
     assert second.status_code == 201
     assert listed.status_code == 200
-    assert [run["id"] for run in listed.json()[:2]] == [
+    body = listed.json()
+    assert body["total"] == 2
+    assert [run["id"] for run in body["items"][:2]] == [
         second.json()["run_id"],
         first.json()["run_id"],
     ]
+    assert body["items"][0]["semester_name"] == "Spring 2027"
