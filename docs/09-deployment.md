@@ -46,6 +46,8 @@ otel-collector
 
 Current repository implementation serves the static demo frontend from FastAPI at `/demo`;
 Nginx proxies `/demo`, `/api/*`, and `/ws/*` to the backend pool.
+The local Compose stack also includes Tempo and Loki so Grafana can show trace
+and log-query evidence for the final report.
 
 ## 3. Docker dependency graph
 

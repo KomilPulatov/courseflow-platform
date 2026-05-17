@@ -139,6 +139,20 @@ h1 {
   gap: 14px;
 }
 
+.button-row,
+.button-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.button-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.button-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .card-form {
   padding: 16px;
   border-radius: 18px;
@@ -227,6 +241,8 @@ button.ghost {
 @media (max-width: 980px) {
   .grid,
   .forms-grid,
+  .button-row,
+  .button-grid,
   .inline-form {
     grid-template-columns: 1fr;
   }

@@ -141,6 +141,51 @@ def test_drop_registration_marks_enrollment_dropped(client, db_session: Session)
     assert db_session.get(Enrollment, enrollment_id).status == "dropped"
 
 
+def test_drop_registration_promotes_next_waitlisted_student(client, db_session: Session) -> None:
+    seed = seed_registration_case(db_session, section_capacity=1)
+    db_session.add(
+        Student(
+            id=2,
+            student_number="2310999",
+            full_name="Second Student",
+            profile_source="manual",
+        )
+    )
+    db_session.add(
+        StudentAcademicProfile(
+            student_id=2,
+            department_id=1,
+            major_id=1,
+            academic_year=3,
+            gpa_is_verified=False,
+        )
+    )
+    db_session.commit()
+
+    registered = client.post(
+        "/api/v1/registrations",
+        headers={"X-Student-Id": str(seed["student_id"])},
+        json={"section_id": seed["section_id"], "idempotency_key": "promote-drop-1"},
+    )
+    waitlisted = client.post(
+        "/api/v1/registrations",
+        headers={"X-Student-Id": "2"},
+        json={"section_id": seed["section_id"], "idempotency_key": "promote-wait-2"},
+    )
+
+    response = client.delete(
+        f"/api/v1/registrations/{registered.json()['enrollment_id']}",
+        headers={"X-Student-Id": str(seed["student_id"])},
+    )
+
+    assert response.status_code == 200
+    assert db_session.get(WaitlistEntry, waitlisted.json()["waitlist_entry_id"]).status == (
+        "promoted"
+    )
+    promoted = db_session.query(Enrollment).filter_by(student_id=2, status="enrolled").one()
+    assert promoted.section_id == seed["section_id"]
+
+
 def test_list_registrations_and_timetable(client, db_session: Session) -> None:
     seed = seed_registration_case(db_session)
     client.post(

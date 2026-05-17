@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.logging import get_logger
 from app.core.security import hash_password
 from app.db.models import Professor, Section, User
 from app.modules.professors.errors import (
@@ -22,6 +23,8 @@ from app.modules.professors.schemas import (
 from app.modules.rooms.repository import RoomRepository
 from app.modules.rooms.schemas import RoomRead
 from app.modules.rooms.service import RoomService
+
+logger = get_logger(__name__)
 
 
 class ProfessorService:
@@ -116,6 +119,12 @@ class ProfessorService:
             rank=data.preference_rank,
         )
         self.db.commit()
+        logger.info(
+            "professor_room_selected",
+            professor_id=prof.id,
+            section_id=section_id,
+            room_id=data.room_id,
+        )
         return RoomPreferenceRead(
             status="selected",
             message="Room preference saved.",

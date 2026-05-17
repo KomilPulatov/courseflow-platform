@@ -143,9 +143,9 @@ Capture at least:
 
 ## 8. Observability acceptance checklist
 
-- [ ] FastAPI emits traces.
-- [ ] Worker emits traces.
-- [ ] Logs include trace IDs.
+- [ ] FastAPI emits traces to Tempo through the OpenTelemetry Collector.
+- [ ] Worker emits logs/events while processing RabbitMQ/Celery tasks.
+- [ ] Logs include request IDs from `X-Request-ID`.
 - [ ] Metrics endpoint is scraped by Prometheus.
 - [ ] Dashboard shows registration activity.
 - [ ] At least one failed registration is visible in logs.

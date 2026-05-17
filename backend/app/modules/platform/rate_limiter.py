@@ -5,8 +5,11 @@ from fastapi import HTTPException, status
 from redis.exceptions import RedisError
 
 from app.core.config import settings
+from app.core.logging import get_logger
 from app.core.metrics import record_redis_operation
 from app.modules.platform.redis_client import get_redis_client
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -106,6 +109,7 @@ def enforce_registration_rate_limit(student_id: int) -> None:
         refill_per_second=per_minute / 60,
     )
     if not limiter.allow(str(student_id)):
+        logger.info("rate_limit_rejected", student_id=student_id, scope="registration")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many registration requests. Please wait and try again.",

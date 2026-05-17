@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.logging import get_logger
 from app.core.metrics import record_registration_event
 from app.db import models
 from app.modules.registration.errors import (
@@ -41,6 +42,7 @@ from app.modules.registration.schemas import (
 )
 
 CREDIT_LIMIT = 18
+logger = get_logger(__name__)
 
 
 class RegistrationService:
@@ -137,12 +139,24 @@ class RegistrationService:
             self.db.rollback()
             self._record_failure_after_rollback(student_id, payload.section_id, exc)
             record_registration_event("RegistrationFailed", "failed")
+            logger.info(
+                "registration_failed",
+                student_id=student_id,
+                section_id=payload.section_id,
+                error=exc.code,
+            )
             raise
         except IntegrityError as exc:
             self.db.rollback()
             duplicate = DuplicateRegistrationError()
             self._record_failure_after_rollback(student_id, payload.section_id, duplicate)
             record_registration_event("RegistrationFailed", "failed")
+            logger.info(
+                "registration_failed",
+                student_id=student_id,
+                section_id=payload.section_id,
+                error=duplicate.code,
+            )
             raise duplicate from exc
 
         self.availability_publisher.publish_section_changed(payload.section_id)
@@ -151,6 +165,13 @@ class RegistrationService:
             self._event_payload(registration_event, response_body),
         )
         record_registration_event(event_type, "success")
+        logger.info(
+            "registration_decision",
+            event_type=event_type,
+            student_id=student_id,
+            section_id=payload.section_id,
+            response=response_body,
+        )
         return response_body
 
     def drop(self, student_id: int, enrollment_id: int) -> dict[str, str | int]:
@@ -174,19 +195,27 @@ class RegistrationService:
             entity_id=enrollment.id,
             payload=payload,
         )
-        registration_event = self.repo.add_registration_event(
+        drop_event = self.repo.add_registration_event(
             student_id=student_id,
             section_id=enrollment.section_id,
             event_type="StudentDropped",
             payload=payload,
         )
+        promoted = self._promote_next_waitlisted_student(enrollment.section_id)
         self.db.commit()
         self.availability_publisher.publish_section_changed(enrollment.section_id)
         self.event_publisher.publish_registration_event(
             "StudentDropped",
-            self._event_payload(registration_event, payload),
+            self._event_payload(drop_event, payload),
         )
         record_registration_event("StudentDropped", "success")
+        if promoted is not None:
+            self.event_publisher.publish_registration_event(
+                "WaitlistPromoted",
+                self._event_payload(promoted["event"], promoted["payload"]),
+            )
+            record_registration_event("WaitlistPromoted", "success")
+            logger.info("waitlist_promoted", **promoted["payload"])
         return payload
 
     def list_current(self, student_id: int) -> list[RegistrationListItem]:
@@ -423,6 +452,11 @@ class RegistrationService:
         profile = student.academic_profile
         if student.profile_source == "manual":
             message = "GPA is skipped because the student profile is manual and not INS-verified."
+            logger.info(
+                "gpa_rule_skipped_manual_profile",
+                student_id=student.id,
+                min_gpa=min_gpa,
+            )
             return EligibilityCheck(
                 rule="gpa",
                 status="skipped",
@@ -497,6 +531,108 @@ class RegistrationService:
                 raise TimetableConflictError()
             if check.rule == "credit_limit":
                 raise CreditLimitExceededError()
+
+    def _promote_next_waitlisted_student(
+        self,
+        section_id: int,
+    ) -> dict[str, Any] | None:
+        section = self.repo.get_section_for_update(section_id)
+        if section is None:
+            return None
+        if self.repo.count_active_enrollments(section_id) >= section.capacity:
+            return None
+
+        offering = self.repo.get_offering(section.course_offering_id)
+        if offering is None:
+            return None
+        course = self.repo.get_course(offering.course_id)
+        semester = self.repo.get_semester(offering.semester_id)
+        if course is None or semester is None:
+            return None
+
+        for entry in self.repo.waiting_entries_for_update(section_id):
+            student = self.repo.get_student(entry.student_id)
+            if student is None:
+                continue
+            checks = self._build_promotion_checks(student, section, offering, course, semester)
+            if any(check.status == "failed" for check in checks):
+                continue
+
+            enrollment = self.repo.create_enrollment(
+                student_id=student.id,
+                section_id=section.id,
+                course_id=course.id,
+                semester_id=semester.id,
+                idempotency_key=f"waitlist-promotion-{entry.id}",
+            )
+            entry.status = "promoted"
+            entry.promoted_at = datetime.now(UTC)
+            payload: dict[str, Any] = {
+                "status": "promoted",
+                "waitlist_entry_id": entry.id,
+                "enrollment_id": enrollment.id,
+                "section_id": section.id,
+                "student_id": student.id,
+                "remaining_seats": max(
+                    section.capacity - self.repo.count_active_enrollments(section.id),
+                    0,
+                ),
+            }
+            self.repo.add_audit_log(
+                student_id=student.id,
+                event_type="waitlist_promoted",
+                entity_type="waitlist_entry",
+                entity_id=entry.id,
+                payload=payload,
+            )
+            event = self.repo.add_registration_event(
+                student_id=student.id,
+                section_id=section.id,
+                event_type="WaitlistPromoted",
+                payload=payload,
+            )
+            return {"event": event, "payload": payload}
+        return None
+
+    def _build_promotion_checks(
+        self,
+        student: models.Student,
+        section: models.Section,
+        offering: models.CourseOffering,
+        course: models.Course,
+        semester: models.Semester,
+    ) -> list[EligibilityCheck]:
+        return [
+            self._profile_check(student),
+            self._registration_period_check(semester.id),
+            self._active_registration_check(student.id, section.id, course.id, semester.id),
+            self._prerequisite_check(student.id, course.id),
+            *self._course_rule_checks(student, course.id),
+            self._timetable_check(student.id, section.id),
+            self._credit_limit_check(student.id, semester.id, course.credits),
+        ]
+
+    def _active_registration_check(
+        self,
+        student_id: int,
+        section_id: int,
+        course_id: int,
+        semester_id: int,
+    ) -> EligibilityCheck:
+        duplicate = (
+            self.repo.get_active_section_enrollment(student_id, section_id) is not None
+            or self.repo.get_active_course_enrollment(student_id, course_id, semester_id)
+            is not None
+        )
+        return EligibilityCheck(
+            rule="duplicate_registration",
+            status="failed" if duplicate else "passed",
+            message=(
+                "Student already has an active registration."
+                if duplicate
+                else "No active registration exists."
+            ),
+        )
 
     def _ensure_not_duplicate(
         self,
