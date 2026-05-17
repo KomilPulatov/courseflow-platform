@@ -1,0 +1,55 @@
+/* ============================================================
+   index.css — IUT / eClass-inspired Login App
+   Scoped via CSS custom properties to avoid any conflict with
+   the existing vanilla frontend (styles.css uses different
+   variable names: --bg, --panel, --ink, --accent, --cool).
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ── Custom tokens (lp- prefix = "login page") ──────────────── */
+:root {
+  --lp-navy:        #1b2d5b;
+  --lp-navy-deep:   #13214a;
+  --lp-teal:        #2b9ea0;
+  --lp-teal-hover:  #228a8c;
+  --lp-crimson:     #c0302b;
+  --lp-crimson-hv:  #a82420;
+  --lp-blue-link:   #1a5fa8;
+  --lp-bg:          #eef1f5;
+  --lp-card:        #ffffff;
+  --lp-border:      #c8d3e0;
+  --lp-input-bg:    #f8fafc;
+  --lp-input-bd:    #1a5fa8;
+  --lp-muted:       #6b7a92;
+  --lp-text:        #1c2742;
+  --lp-link:        #1a5fa8;
+  --lp-divider:     #2b67b8;
+  --lp-panel-right: #f4f7fb;
+}
+
+/* ── Reset ───────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  background-color: var(--lp-bg);
+  color: var(--lp-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--lp-link);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
