@@ -25,6 +25,11 @@ def student_ins_login(body: schemas.INSLoginRequest, db: DbSession) -> schemas.I
     return service.login_student_ins(db, body.student_number, body.password)
 
 
+@router.post("/student/manual-login", response_model=schemas.ManualLoginResponse)
+def student_manual_login(body: schemas.ManualLoginRequest, db: DbSession) -> schemas.ManualLoginResponse:
+    return service.login_student_manual(db, body.email, body.password)
+
+
 @router.post("/student/manual-start", response_model=schemas.ManualStartResponse)
 def student_manual_start(
     body: schemas.ManualStartRequest,
