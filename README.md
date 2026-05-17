@@ -1,137 +1,146 @@
-# CRSP — Course Registration and Scheduling Platform
+# CourseFlow Platform
 
-University course registration platform built as a **dockerized modular monolith** for the Database Application and Design course (Spring 2026).
+CourseFlow is a university course registration and scheduling platform built for
+the Database Application and Design course, Spring 2026.
 
-Students search and register for course sections with live seat updates, timetable conflict checks, waitlists, and audit logging. Administrators manage offerings, registration periods, and demand analytics. The central technical challenge is **safe concurrent registration** — the system must never overbook seats under load.
+The project is a dockerized platform with a FastAPI backend, PostgreSQL,
+Redis, RabbitMQ/Celery, Nginx, observability services, and a React frontend.
+Students can browse courses, check section availability, register safely under
+concurrent load, join waitlists, and receive live seat updates. Administrators
+and professors manage catalog, rooms, schedules, and registration periods.
 
-Built by **team Celion**. See `docs/technical-specification.md` for the full spec.
-
----
+Built by team Celion.
 
 ## Stack
 
-- **Backend:** FastAPI, SQLAlchemy 2, Alembic, Pydantic v2
-- **Database:** PostgreSQL (source of truth) + Redis (cache, idempotency keys, pub/sub)
-- **Async:** RabbitMQ + Celery worker
-- **Realtime:** WebSockets (live seat updates)
-- **Gateway:** Nginx (reverse proxy + load balance across two backend replicas)
-- **Observability:** OpenTelemetry, Prometheus, Grafana, Loki/Tempo
-- **Frontend:** Static demo console served by FastAPI at `/demo`
-- **Package manager:** [`uv`](https://docs.astral.sh/uv/) (single source of truth: `backend/pyproject.toml` + `backend/uv.lock`)
-
----
+- Backend: FastAPI, SQLAlchemy 2, Alembic, Pydantic v2
+- Frontend: React 19, Vite, lucide-react
+- Database: PostgreSQL, Redis
+- Async: RabbitMQ and Celery
+- Realtime: WebSockets
+- Gateway: Nginx reverse proxy with two backend replicas
+- Observability: OpenTelemetry, Prometheus, Grafana, Loki, Tempo
+- Backend package manager: uv
+- Frontend package manager: npm
 
 ## Prerequisites
 
-- Python **3.11+**
-- [`uv`](https://docs.astral.sh/uv/getting-started/installation/) — install with `curl -LsSf https://astral.sh/uv/install.sh | sh` (or `winget install --id=astral-sh.uv` on Windows)
-- Docker Desktop (for the full Postgres / Redis / RabbitMQ / Nginx stack)
+- Python 3.11+
+- uv
+- Node.js 24+
+- Docker Desktop
 - Git
 
----
+## Local Development
 
-## First-time setup
+Copy the environment template first:
 
 ```bash
-git clone https://github.com/KomilPulatov/courseflow-platform.git
-cd courseflow-platform
-
-# 1. Copy env template
 cp .env.example .env
+```
 
-# 2. Backend
+Backend:
+
+```bash
 cd backend
 uv sync
 uv run alembic upgrade head
-uv run python -m app.db.demo_seed     # demo admin + catalog data
-uv run uvicorn app.main:app --reload  # http://localhost:8000/docs
+uv run python -m app.db.demo_seed
+uv run uvicorn app.main:app --reload
+```
 
-# 3. (Optional but recommended) install pre-commit hooks
-cd ..
-uv tool install pre-commit
-pre-commit install
+Frontend:
+
+```bash
+cd frontend
+npm ci
+npm run dev
 ```
 
 Open:
 
-- http://localhost:8000/docs for the OpenAPI UI
-- http://localhost:8000/demo for the seeded demo console
-- http://localhost:8000/health for the health check
+- Frontend: http://localhost:5173
+- API docs: http://localhost:8000/docs
+- Health: http://localhost:8000/health
 
----
+The Vite dev server proxies `/api`, `/ws`, `/health`, and `/metrics` to the
+local backend.
 
-## Common commands
+## Docker Stack
 
-All run from `backend/` unless noted.
-
-| Goal | Command |
-|---|---|
-| Add a runtime dep | `uv add <pkg>` |
-| Add a dev-only dep | `uv add --dev <pkg>` |
-| Sync env to lockfile | `uv sync` |
-| Apply migrations | `uv run alembic upgrade head` |
-| Seed demo data | `uv run python -m app.db.demo_seed` |
-| Run server (reload) | `uv run uvicorn app.main:app --reload` |
-| Run tests | `uv run pytest` |
-| Lint | `uv run ruff check .` |
-| Format | `uv run ruff format .` |
-| Format check (CI-style) | `uv run ruff format --check .` |
-| Run all hooks locally | `pre-commit run --all-files` *(from repo root)* |
-
-From the repo root, the full local stack can be validated with:
+From the repository root:
 
 ```bash
 docker compose config
-docker compose up -d
+docker compose up -d --build
 ```
 
-Docker host ports are configured from `.env` (for example `NGINX_PORT=8081`,
-`POSTGRES_PORT=5432`, `GRAFANA_PORT=3000`). For deployment, change the
-environment file instead of editing `docker-compose.yml`.
+Open:
 
-**Never run `pip install` directly** — it bypasses `uv.lock` and breaks reproducibility for the rest of the team. Always go through `uv add` / `uv sync`.
+- App through Nginx: http://localhost:8081
+- API docs through Nginx: http://localhost:8081/docs
+- Grafana: http://localhost:3000
+- Prometheus: http://localhost:9090
+- RabbitMQ management: http://localhost:15672
 
----
+Host ports are configured in `.env`, for example `NGINX_PORT=8081`,
+`POSTGRES_PORT=5432`, and `GRAFANA_PORT=3000`.
 
-## Project structure
+## Common Commands
 
-```
+Backend commands run from `backend/`.
+
+| Goal | Command |
+| --- | --- |
+| Sync backend deps | `uv sync` |
+| Apply migrations | `uv run alembic upgrade head` |
+| Seed demo data | `uv run python -m app.db.demo_seed` |
+| Run backend | `uv run uvicorn app.main:app --reload` |
+| Run backend tests | `uv run pytest` |
+| Backend lint | `uv run ruff check .` |
+| Backend format check | `uv run ruff format --check .` |
+
+Frontend commands run from `frontend/`.
+
+| Goal | Command |
+| --- | --- |
+| Install frontend deps | `npm ci` |
+| Run frontend dev server | `npm run dev` |
+| Build frontend | `npm run build` |
+| Lint frontend | `npm run lint` |
+| Preview production build | `npm run preview` |
+
+## Project Structure
+
+```text
 courseflow-platform/
-├─ backend/               # FastAPI app
-│  ├─ pyproject.toml      # uv-managed deps + ruff/pytest config
-│  ├─ uv.lock             # locked dependency graph (commit this)
-│  └─ app/
-│     ├─ main.py
-│     ├─ api/v1/          # HTTP routers
-│     ├─ core/            # config, security, logging, telemetry, rate limiter
-│     ├─ db/              # session, transaction helpers
-│     ├─ modules/         # auth / courses / registration / waitlist / timetable / audit
-│     └─ tests/           # unit / integration / load
-├─ frontend/              # Static demo console mounted at /demo
-├─ nginx/                 # reverse proxy + LB config
-├─ postgres/              # init.sql, tuning
-├─ docs/                  # architecture, ER diagram, BPMN, ADRs
-├─ .github/workflows/     # CI
-├─ .env.example
-├─ CONTRIBUTING.md
-└─ CHANGELOG.md
+  backend/               FastAPI app, migrations, tests
+  frontend/              React/Vite app and frontend Docker image
+  nginx/                 Public reverse proxy config
+  postgres/              PostgreSQL init scripts
+  observability/         OTel, Prometheus, Grafana, Loki, Tempo config
+  docs/                  Requirements, architecture, API, deployment notes
+  .github/workflows/     CI for backend, frontend, and Compose config
 ```
 
----
+## Pull Request Standard
 
-## Contributing
-
-We use **trunk-based development** with **Conventional Commits**. Before opening a PR, make sure CI passes locally:
+Before merging a PR, the branch should pass:
 
 ```bash
 cd backend
 uv run ruff check . && uv run ruff format --check . && uv run pytest
+
+cd ../frontend
+npm ci && npm run lint && npm run build
+
+cd ..
+docker compose config
 ```
 
-Full guidelines: [CONTRIBUTING.md](CONTRIBUTING.md).
-
----
+Use squash merge for feature branches unless the team intentionally wants to
+preserve a multi-commit history.
 
 ## License
 
-[MIT](LICENSE) © 2026 Celion
+[MIT](LICENSE) (c) 2026 Celion
