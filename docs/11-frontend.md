@@ -2,10 +2,10 @@
 
 ## Purpose
 
-The frontend is a React/Vite operations console for the CourseFlow platform. It
-is intentionally thin: it calls the FastAPI API directly, keeps auth tokens in
-browser local storage for demo workflows, and surfaces API responses in an event
-log so reviewers can verify behavior quickly.
+The frontend is the student-facing CourseFlow React app. It lives in
+`frontend/`, calls the FastAPI API, stores the demo student token in browser
+local storage, and listens to WebSocket updates for registration and waitlist
+events.
 
 ## Local Development
 
@@ -25,7 +25,7 @@ backend on http://localhost:8000:
 /metrics
 ```
 
-Set `VITE_API_BASE_URL` only when the frontend is served from a different origin.
+Set `VITE_API_BASE` only when the frontend is served from a different origin.
 For same-origin Nginx deployment, keep it empty.
 
 ## Production Build

@@ -14,7 +14,7 @@ Built by team Celion.
 ## Stack
 
 - Backend: FastAPI, SQLAlchemy 2, Alembic, Pydantic v2
-- Frontend: React 19, Vite, lucide-react
+- Frontend: React, TypeScript, Vite, Tailwind, React Router in `frontend/`
 - Database: PostgreSQL, Redis
 - Async: RabbitMQ and Celery
 - Realtime: WebSockets
@@ -115,7 +115,7 @@ Frontend commands run from `frontend/`.
 ```text
 courseflow-platform/
   backend/               FastAPI app, migrations, tests
-  frontend/              React/Vite app and frontend Docker image
+  frontend/              Student React app and frontend Docker image
   nginx/                 Public reverse proxy config
   postgres/              PostgreSQL init scripts
   observability/         OTel, Prometheus, Grafana, Loki, Tempo config
