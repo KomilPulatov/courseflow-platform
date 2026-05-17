@@ -277,12 +277,13 @@ class RegistrationRepository:
         section_id: int | None,
         event_type: str,
         payload: dict | None = None,
-    ) -> None:
-        self.db.add(
-            models.RegistrationEvent(
-                student_id=student_id,
-                section_id=section_id,
-                event_type=event_type,
-                payload=payload,
-            )
+    ) -> models.RegistrationEvent:
+        event = models.RegistrationEvent(
+            student_id=student_id,
+            section_id=section_id,
+            event_type=event_type,
+            payload=payload,
         )
+        self.db.add(event)
+        self.db.flush()
+        return event

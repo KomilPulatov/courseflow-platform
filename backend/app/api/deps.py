@@ -8,6 +8,12 @@ from sqlalchemy.orm import Session
 from app.core.security import decode_access_token
 from app.db.models import Student
 from app.db.session import get_db
+from app.modules.platform.rate_limiter import enforce_registration_rate_limit
+from app.modules.registration.publishers import (
+    CeleryRegistrationEventPublisher,
+    RedisAvailabilityPublisher,
+)
+from app.modules.registration.service import RegistrationService
 
 DbSession = Annotated[Session, Depends(get_db)]
 
@@ -49,4 +55,19 @@ def get_current_student_id(
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Student authentication required",
+    )
+
+
+def get_rate_limited_current_student_id(
+    student_id: Annotated[int, Depends(get_current_student_id)],
+) -> int:
+    enforce_registration_rate_limit(student_id)
+    return student_id
+
+
+def get_registration_service(db: DbSession) -> RegistrationService:
+    return RegistrationService(
+        db,
+        availability_publisher=RedisAvailabilityPublisher(db),
+        event_publisher=CeleryRegistrationEventPublisher(db),
     )

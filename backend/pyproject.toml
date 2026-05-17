@@ -30,6 +30,7 @@ dependencies = [
     "opentelemetry-instrumentation-sqlalchemy>=0.48b0",
     "opentelemetry-instrumentation-logging>=0.48b0",
     "celery>=5.4",
+    "prometheus-client>=0.21",
 ]
 
 [dependency-groups]
