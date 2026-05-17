@@ -4,12 +4,12 @@ from pydantic import BaseModel, EmailStr
 
 
 class AdminLoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
 class ProfessorLoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
@@ -21,12 +21,12 @@ class INSLoginRequest(BaseModel):
 class ManualStartRequest(BaseModel):
     student_number: str
     full_name: str
-    email: EmailStr
+    email: str
     password: str
 
 
 class ManualLoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 

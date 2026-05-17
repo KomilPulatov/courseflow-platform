@@ -69,8 +69,16 @@ async def request_id_middleware(request: Request, call_next):
     return response
 
 
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(websocket_router)
+
+demo_dir = Path(__file__).resolve().parents[2] / "frontend"
+if demo_dir.exists():
+    app.mount("/demo", StaticFiles(directory=demo_dir, html=True), name="demo")
+
 
 
 @app.get("/health", tags=["Health"])
