@@ -45,34 +45,42 @@ professor_assets_dir = professor_dir / "assets"
 if professor_assets_dir.exists():
     app.mount("/portal-assets", StaticFiles(directory=professor_assets_dir), name="portal-assets")
 
+professor_dist_dir = professor_dir / "dist"
+if professor_dist_dir.exists():
+    app.mount("/professor-static", StaticFiles(directory=professor_dist_dir), name="professor-static")
 
-def professor_page_response(filename: str) -> FileResponse:
-    return FileResponse(professor_dir / filename)
+app_shell_dir = demo_dir / "app-shell"
+app_shell_dist_dir = app_shell_dir / "dist"
+if app_shell_dist_dir.exists():
+    app.mount("/app-static", StaticFiles(directory=app_shell_dist_dir), name="app-static")
+
+
+def professor_page_response() -> FileResponse:
+    return FileResponse(professor_dist_dir / "index.html")
+
+
+def app_shell_page_response() -> FileResponse:
+    return FileResponse(app_shell_dist_dir / "index.html")
 
 
 @app.get("/professor", include_in_schema=False)
 def professor_dashboard_page() -> FileResponse:
-    return professor_page_response("dashboard.html")
+    return professor_page_response()
 
 
-@app.get("/professor/sections", include_in_schema=False)
-def professor_sections_page() -> FileResponse:
-    return professor_page_response("sections.html")
+@app.get("/professor/{full_path:path}", include_in_schema=False)
+def professor_app_routes(full_path: str) -> FileResponse:
+    return professor_page_response()
 
 
-@app.get("/professor/sections/{section_id}", include_in_schema=False)
-def professor_section_detail_page(section_id: int) -> FileResponse:
-    return professor_page_response("section-detail.html")
+@app.get("/app", include_in_schema=False)
+def app_shell_root() -> FileResponse:
+    return app_shell_page_response()
 
 
-@app.get("/professor/sections/{section_id}/room-options", include_in_schema=False)
-def professor_room_options_page(section_id: int) -> FileResponse:
-    return professor_page_response("room-options.html")
-
-
-@app.get("/professor/timetable", include_in_schema=False)
-def professor_timetable_page() -> FileResponse:
-    return professor_page_response("timetable.html")
+@app.get("/app/{full_path:path}", include_in_schema=False)
+def app_shell_routes(full_path: str) -> FileResponse:
+    return app_shell_page_response()
 
 
 @app.get("/health", tags=["Health"])
