@@ -1,9 +1,11 @@
 import asyncio
 from contextlib import asynccontextmanager, suppress
+from pathlib import Path
 from uuid import uuid4
 
 import structlog
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -88,11 +90,18 @@ if frontend_dir is not None:
     assets_dir = frontend_dir / "assets"
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
+    portal_assets_dir = frontend_dir / "portal-assets"
+    if portal_assets_dir.exists():
+        app.mount("/portal-assets", StaticFiles(directory=portal_assets_dir), name="portal-assets")
 
     @app.get("/demo", include_in_schema=False)
     @app.get("/demo/{full_path:path}", include_in_schema=False)
     @app.get("/admin", include_in_schema=False)
     @app.get("/admin/{full_path:path}", include_in_schema=False)
+    @app.get("/app", include_in_schema=False)
+    @app.get("/app/{full_path:path}", include_in_schema=False)
+    @app.get("/professor", include_in_schema=False)
+    @app.get("/professor/{full_path:path}", include_in_schema=False)
     def react_spa(full_path: str = "") -> FileResponse:
         return FileResponse(frontend_dir / "index.html")
 

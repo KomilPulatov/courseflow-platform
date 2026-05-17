@@ -41,6 +41,10 @@ class RoomService:
         professors = list(self.db.execute(select(models.Professor)).scalars())
         return [self._professor_read(p) for p in professors]
 
+    def get_professor_profile(self, user_id: int) -> schemas.ProfessorRead:
+        professor = self._get_professor_by_user(user_id)
+        return self._professor_read(professor)
+
     def update_professor(
         self,
         professor_id: int,

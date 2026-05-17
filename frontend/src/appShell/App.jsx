@@ -13,8 +13,8 @@ const navItems = [
 ];
 
 function titleFor(pathname) {
-  if (pathname.startsWith("/settings")) return "Application Settings";
-  if (pathname.startsWith("/not-found")) return "Route Not Found";
+  if (pathname.includes("/settings")) return "Application Settings";
+  if (pathname.includes("/not-found")) return "Route Not Found";
   return "Application Health";
 }
 

@@ -3,9 +3,9 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { signOutProfessor } from "../session.js";
 
 const navItems = [
-  { href: "/", label: "Professor Home", exact: true },
-  { href: "/sections", label: "My Sections" },
-  { href: "/timetable", label: "Timetable" },
+  { href: "/professor", label: "Professor Home", exact: true },
+  { href: "/professor/sections", label: "My Sections" },
+  { href: "/professor/timetable", label: "Timetable" },
 ];
 
 export function ProfessorLayout({
@@ -20,7 +20,7 @@ export function ProfessorLayout({
   function logout() {
     signOutProfessor();
     onLogout?.();
-    navigate("/");
+    navigate("/professor");
   }
 
   return (
@@ -31,7 +31,7 @@ export function ProfessorLayout({
             <img src="/portal-assets/images/iut-logo.gif" alt="Inha University in Tashkent" />
           </div>
           <div className="header-links">
-            {profile ? <NavLink to="/timetable">Timetable</NavLink> : null}
+            {profile ? <NavLink to="/professor/timetable">Timetable</NavLink> : null}
             {profile ? <span className="header-links__divider">|</span> : null}
             <a href="https://class.inha.uz/" target="_blank" rel="noreferrer">
               e-Class
