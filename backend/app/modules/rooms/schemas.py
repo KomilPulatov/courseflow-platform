@@ -130,6 +130,17 @@ class ProfessorSectionRead(BaseModel):
     status: str
 
 
+class ProfessorTimetableItemRead(BaseModel):
+    section_id: int
+    course_code: str
+    course_title: str
+    section_code: str
+    day_of_week: str
+    start_time: str
+    end_time: str
+    room_label: str | None
+
+
 class RoomOptionsResponse(BaseModel):
     section_id: int
     room_selection_mode: str

@@ -2,7 +2,13 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.db.models import CourseEligibilityRule, RegistrationPeriod, StudentCompletedCourse
+from app.db.models import (
+    Course,
+    CourseEligibilityRule,
+    CourseEquivalency,
+    RegistrationPeriod,
+    StudentCompletedCourse,
+)
 from app.modules.registration.errors import GpaBelowMinimumError, MissingPrerequisiteError
 from app.modules.registration.schemas import RegistrationCreate
 from app.modules.registration.service import RegistrationService
@@ -60,6 +66,47 @@ def test_missing_prerequisite_fails_registration(db_session: Session) -> None:
         assert "CSE2010" in exc.message
     else:
         raise AssertionError("Expected prerequisite failure")
+
+
+def test_equivalent_completed_course_satisfies_prerequisite(db_session: Session) -> None:
+    seed = seed_registration_case(db_session, with_prerequisite=True)
+    prerequisite = db_session.get(Course, 2)
+    equivalent = Course(
+        id=3,
+        department_id=1,
+        code="ICE2010",
+        title="Programming",
+        credits=3,
+    )
+    db_session.add(equivalent)
+    db_session.flush()
+    db_session.add(
+        CourseEquivalency(
+            course_id=min(prerequisite.id, equivalent.id),
+            equivalent_course_id=max(prerequisite.id, equivalent.id),
+            equivalence_type="cross_program",
+        )
+    )
+    db_session.query(StudentCompletedCourse).delete()
+    db_session.add(
+        StudentCompletedCourse(
+            student_id=seed["student_id"],
+            course_id=equivalent.id,
+            course_code=equivalent.code,
+            course_title=equivalent.title,
+            credits=equivalent.credits,
+            source="manual",
+        )
+    )
+    db_session.commit()
+
+    response = RegistrationService(db_session).preview_eligibility(
+        seed["student_id"],
+        seed["section_id"],
+    )
+
+    prerequisite_check = next(check for check in response.checks if check.rule == "prerequisite")
+    assert prerequisite_check.status == "passed"
 
 
 def test_closed_registration_period_makes_student_ineligible(db_session: Session) -> None:

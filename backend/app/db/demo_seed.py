@@ -111,14 +111,22 @@ def get_or_create_student(
     user = get_or_create_user(db, email=email, password=password, role="student")
     student = db.query(Student).filter(Student.user_id == user.id).first()
     if student is None:
-        student = Student(
-            user_id=user.id,
-            student_number=student_number,
-            full_name=full_name,
-            profile_source="manual",
-        )
-        db.add(student)
-        db.flush()
+        student = db.query(Student).filter(Student.student_number == student_number).first()
+        if student is None:
+            student = Student(
+                user_id=user.id,
+                student_number=student_number,
+                full_name=full_name,
+                profile_source="manual",
+            )
+            db.add(student)
+            db.flush()
+        else:
+            student.user_id = user.id
+
+    student.student_number = student_number
+    student.full_name = full_name
+    student.profile_source = "manual"
 
     profile = (
         db.query(StudentAcademicProfile)

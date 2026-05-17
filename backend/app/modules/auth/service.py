@@ -16,6 +16,7 @@ from app.db.models import (
 )
 from app.modules.auth.schemas import (
     INSLoginResponse,
+    ManualLoginResponse,
     ManualStartResponse,
     TokenResponse,
 )
@@ -119,6 +120,27 @@ def _upsert_external_account(
         )
     else:
         ext.last_verified_at = verified_at
+
+
+def login_student_manual(db: Session, email: str, password: str) -> ManualLoginResponse:
+    user = db.query(User).filter(User.email == email, User.role == "student").first()
+    if not user or not verify_password(password, user.password_hash or ""):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    student = (
+        db.query(Student)
+        .filter(Student.student_number.isnot(None), Student.user_id == user.id)
+        .first()
+    )
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Student profile not found"
+        )
+    token = create_access_token(user.id, "student")
+    return ManualLoginResponse(
+        access_token=token,
+        student_number=student.student_number,
+        full_name=student.full_name,
+    )
 
 
 def register_student_manual(
