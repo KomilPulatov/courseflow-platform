@@ -11,6 +11,8 @@ from app.modules.courses.schemas import (
     CourseDetail,
     CourseEligibilityRuleCreate,
     CourseEligibilityRuleRead,
+    CourseEquivalencyReplaceRequest,
+    CourseEquivalentRead,
     CourseOfferingCreate,
     CourseOfferingRead,
     CoursePrerequisiteRead,
@@ -128,6 +130,23 @@ def replace_course_prerequisites(
     db: DbSession,
 ) -> list[CoursePrerequisiteRead]:
     return CourseCatalogService(db).replace_prerequisites(course_id, payload)
+
+
+@router.put(
+    "/courses/{course_id}/equivalencies",
+    response_model=list[CourseEquivalentRead],
+    responses={
+        400: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+    },
+)
+def replace_course_equivalencies(
+    course_id: int,
+    payload: CourseEquivalencyReplaceRequest,
+    _admin: AdminUser,
+    db: DbSession,
+) -> list[CourseEquivalentRead]:
+    return CourseCatalogService(db).replace_equivalencies(course_id, payload)
 
 
 @router.post(
