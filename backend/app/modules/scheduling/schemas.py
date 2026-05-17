@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -29,6 +30,16 @@ class SuggestionRunRead(BaseModel):
     strategy: str
     status: str
     items: list[SuggestionItemRead]
+
+
+class SuggestionRunSummary(BaseModel):
+    id: int
+    semester_id: int
+    strategy: str
+    status: str
+    created_at: datetime
+    completed_at: datetime | None
+    approved_at: datetime | None
 
 
 class SuggestionApproveResponse(BaseModel):

@@ -70,6 +70,27 @@ class SchedulingService:
             ],
         )
 
+    def list_runs(self, *, limit: int) -> list[schemas.SuggestionRunSummary]:
+        runs = list(
+            self.db.execute(
+                select(models.TimetableSuggestionRun)
+                .order_by(models.TimetableSuggestionRun.created_at.desc())
+                .limit(limit)
+            ).scalars()
+        )
+        return [
+            schemas.SuggestionRunSummary(
+                id=run.id,
+                semester_id=run.semester_id,
+                strategy=run.strategy,
+                status=run.status,
+                created_at=run.created_at,
+                completed_at=run.completed_at,
+                approved_at=run.approved_at,
+            )
+            for run in runs
+        ]
+
     def approve_run(self, run_id: int) -> schemas.SuggestionApproveResponse:
         run = self._get_run(run_id)
         items = list(
