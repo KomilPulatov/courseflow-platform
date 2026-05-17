@@ -66,6 +66,32 @@ Response:
 }
 ```
 
+### POST `/auth/student/manual-login`
+
+Login for returning manual-profile students (email + password).
+
+Request:
+
+```json
+{
+  "email": "student@example.com",
+  "password": "secret"
+}
+```
+
+Response:
+
+```json
+{
+  "access_token": "...",
+  "token_type": "bearer",
+  "role": "student",
+  "profile_source": "manual",
+  "student_number": "2310204",
+  "full_name": "Demo Student"
+}
+```
+
 ### POST `/auth/student/manual-start`
 
 Creates/starts manual student account.

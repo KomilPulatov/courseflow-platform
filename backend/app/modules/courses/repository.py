@@ -149,6 +149,22 @@ class CourseCatalogRepository:
         )
         return list(self.db.execute(stmt).scalars())
 
+    def list_equivalency_rows(self, course_id: int) -> list[models.CourseEquivalency]:
+        stmt = (
+            select(models.CourseEquivalency)
+            .where(
+                or_(
+                    models.CourseEquivalency.course_id == course_id,
+                    models.CourseEquivalency.equivalent_course_id == course_id,
+                )
+            )
+            .order_by(
+                models.CourseEquivalency.course_id,
+                models.CourseEquivalency.equivalent_course_id,
+            )
+        )
+        return list(self.db.execute(stmt).scalars())
+
     def get_course_rules(self, course_id: int) -> list[models.CourseEligibilityRule]:
         stmt = select(models.CourseEligibilityRule).where(
             models.CourseEligibilityRule.course_id == course_id
@@ -178,6 +194,17 @@ class CourseCatalogRepository:
             self.db.delete(row)
         self.db.flush()
 
+    def delete_equivalencies(self, course_id: int) -> None:
+        stmt = select(models.CourseEquivalency).where(
+            or_(
+                models.CourseEquivalency.course_id == course_id,
+                models.CourseEquivalency.equivalent_course_id == course_id,
+            )
+        )
+        for row in self.db.execute(stmt).scalars():
+            self.db.delete(row)
+        self.db.flush()
+
     def add_prerequisites(
         self,
         *,
@@ -191,6 +218,27 @@ class CourseCatalogRepository:
                 course_id=course_id,
                 prerequisite_course_id=prerequisite_course_id,
                 rule_group=rule_group,
+            )
+            self.db.add(row)
+            rows.append(row)
+        self.db.flush()
+        return rows
+
+    def add_equivalencies(
+        self,
+        *,
+        course_id: int,
+        equivalent_course_ids: Sequence[int],
+        equivalence_type: str,
+    ) -> list[models.CourseEquivalency]:
+        rows: list[models.CourseEquivalency] = []
+        for equivalent_course_id in equivalent_course_ids:
+            left_id = min(course_id, equivalent_course_id)
+            right_id = max(course_id, equivalent_course_id)
+            row = models.CourseEquivalency(
+                course_id=left_id,
+                equivalent_course_id=right_id,
+                equivalence_type=equivalence_type,
             )
             self.db.add(row)
             rows.append(row)

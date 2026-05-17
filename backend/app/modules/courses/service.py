@@ -299,6 +299,23 @@ class CourseCatalogService:
                     title=prerequisite.title,
                 )
             )
+        equivalents = []
+        for row in self.repo.list_equivalency_rows(course.id):
+            equivalent_course_id = (
+                row.equivalent_course_id if row.course_id == course.id else row.course_id
+            )
+            equivalent = self.repo.get_course(equivalent_course_id)
+            if equivalent is None:
+                continue
+            equivalents.append(
+                schemas.CourseEquivalentRead(
+                    course_id=equivalent.id,
+                    code=equivalent.code,
+                    title=equivalent.title,
+                    credits=equivalent.credits,
+                    equivalence_type=row.equivalence_type,
+                )
+            )
         return schemas.CourseDetail(
             id=course.id,
             department_id=course.department_id,
@@ -312,6 +329,7 @@ class CourseCatalogService:
             is_repeatable=course.is_repeatable,
             is_active=course.is_active,
             prerequisites=prerequisites,
+            equivalents=equivalents,
         )
 
     def update_course(self, course_id: int, payload: schemas.CourseUpdate) -> schemas.CourseDetail:
@@ -408,6 +426,58 @@ class CourseCatalogService:
                 rule_group=payload.rule_group,
             )
             for prerequisite in prerequisite_courses
+        ]
+
+    def replace_equivalencies(
+        self,
+        course_id: int,
+        payload: schemas.CourseEquivalencyReplaceRequest,
+    ) -> list[schemas.CourseEquivalentRead]:
+        course = self.repo.get_course(course_id)
+        if course is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+        equivalent_courses: list[models.Course] = []
+        for equivalent_course_id in payload.equivalent_course_ids:
+            if equivalent_course_id == course_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="A course cannot be equivalent to itself.",
+                )
+            equivalent_course = self.repo.get_course(equivalent_course_id)
+            if equivalent_course is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Equivalent course {equivalent_course_id} was not found.",
+                )
+            equivalent_courses.append(equivalent_course)
+
+        self.repo.delete_equivalencies(course_id)
+        self.repo.add_equivalencies(
+            course_id=course_id,
+            equivalent_course_ids=payload.equivalent_course_ids,
+            equivalence_type=payload.equivalence_type,
+        )
+        self.repo.create_audit_log(
+            actor_student_id=None,
+            event_type="admin_equivalencies_replaced",
+            entity_type="course",
+            entity_id=course_id,
+            payload={
+                "equivalent_course_ids": payload.equivalent_course_ids,
+                "equivalence_type": payload.equivalence_type,
+            },
+        )
+        self.db.commit()
+        return [
+            schemas.CourseEquivalentRead(
+                course_id=equivalent.id,
+                code=equivalent.code,
+                title=equivalent.title,
+                credits=equivalent.credits,
+                equivalence_type=payload.equivalence_type,
+            )
+            for equivalent in equivalent_courses
         ]
 
     def create_eligibility_rule(
