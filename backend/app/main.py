@@ -66,9 +66,13 @@ async def request_id_middleware(request: Request, call_next):
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(websocket_router)
 
-demo_dir = Path(__file__).resolve().parents[2] / "frontend"
-if demo_dir.exists():
-    app.mount("/demo", StaticFiles(directory=demo_dir, html=True), name="demo")
+for demo_dir in (
+    Path(__file__).resolve().parents[2] / "frontend",
+    Path(__file__).resolve().parents[1] / "frontend",
+):
+    if demo_dir.exists():
+        app.mount("/demo", StaticFiles(directory=demo_dir, html=True), name="demo")
+        break
 
 
 @app.get("/health", tags=["Health"])
