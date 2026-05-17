@@ -10,6 +10,8 @@ class CompletedCourseOut(BaseModel):
 
 
 class AcademicProfileOut(BaseModel):
+    department_id: int | None = None
+    major_id: int | None = None
     department_name: str | None
     major_name: str | None
     academic_year: int | None
@@ -28,8 +30,10 @@ class StudentProfileResponse(BaseModel):
 
 
 class ManualProfileUpdateRequest(BaseModel):
-    department_name: str
-    major_name: str
+    department_id: int | None = None
+    major_id: int | None = None
+    department_name: str | None = None
+    major_name: str | None = None
     academic_year: int
     completed_course_codes: list[str] = []  # e.g. ["MSC1011", "CSE2010"]
 

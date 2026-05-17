@@ -1,3 +1,4 @@
+from app.db.models import Notification
 from app.modules.platform.rate_limiter import TokenBucket
 from app.tests.factories import seed_registration_case
 
@@ -36,3 +37,25 @@ def test_token_bucket_refills_and_rejects() -> None:
     assert bucket.allow(now=0)
     assert not bucket.allow(now=0)
     assert bucket.allow(now=1)
+
+
+def test_student_notifications_endpoint(client, db_session) -> None:
+    seed = seed_registration_case(db_session)
+    db_session.add(
+        Notification(
+            student_id=seed["student_id"],
+            event_type="WaitlistPromoted",
+            message="You were promoted.",
+            payload={"section_id": seed["section_id"]},
+            status="unread",
+        )
+    )
+    db_session.commit()
+
+    response = client.get(
+        "/api/v1/notifications/me",
+        headers={"X-Student-Id": str(seed["student_id"])},
+    )
+
+    assert response.status_code == 200
+    assert response.json()[0]["event_type"] == "WaitlistPromoted"

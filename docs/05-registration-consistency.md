@@ -174,8 +174,9 @@ Alternative: lock section row and calculate position safely inside the same tran
 ## 7. Drop and promotion consistency
 
 Current slice implementation supports safe student drop by locking the enrollment row
-and marking it `dropped`. Automatic waitlist promotion remains a worker/platform
-integration task so it does not conflict with the reliability slice.
+and marking it `dropped`. After the drop, the service checks the FIFO waitlist for
+the same section, re-validates candidates, promotes the first eligible student, and
+publishes availability/notification events.
 
 When a student drops:
 
@@ -183,8 +184,9 @@ When a student drops:
 2. Lock enrollment row.
 3. Mark enrollment as dropped.
 4. Write audit log and registration event.
-5. Commit.
-6. Publish section-change and registration-event adapter calls.
+5. Promote the first eligible waiting student if capacity is available.
+6. Commit.
+7. Publish section-change and registration-event adapter calls.
 
 ## 8. Concurrency test
 

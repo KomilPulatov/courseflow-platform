@@ -43,4 +43,6 @@ def _message_for(event_type: str, payload: dict) -> str:
         return f"You were added to the waitlist for section {payload.get('section_id')}."
     if event_type == "StudentDropped":
         return f"Registration dropped for section {payload.get('section_id')}."
+    if event_type == "WaitlistPromoted":
+        return f"You were promoted from the waitlist for section {payload.get('section_id')}."
     return "Registration event was processed."

@@ -1,8 +1,10 @@
 import asyncio
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
+from uuid import uuid4
 
-from fastapi import FastAPI
+import structlog
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.endpoints.websocket import router as websocket_router
@@ -49,6 +51,18 @@ app = FastAPI(
 )
 
 app.add_middleware(MetricsMiddleware)
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid4())
+    structlog.contextvars.clear_contextvars()
+    structlog.contextvars.bind_contextvars(request_id=request_id)
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(websocket_router)
 

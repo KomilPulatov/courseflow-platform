@@ -398,6 +398,10 @@ Response:
 
 ### GET `/registrations/me/timetable`
 
+### GET `/notifications/me`
+
+Returns current student's worker-created notification rows for demo/report evidence.
+
 ## 9. Waitlist
 
 ### GET `/waitlists/me`
@@ -447,3 +451,9 @@ Event:
 | 422 | Schema validation error |
 | 429 | Rate limit exceeded |
 | 503 | Dependency unavailable |
+
+## 12. Demo evidence endpoints
+
+### GET `/admin/audit-logs`
+
+Admin-only endpoint that returns recent audit log rows for the final demo and report screenshots.

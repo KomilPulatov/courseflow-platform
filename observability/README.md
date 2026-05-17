@@ -10,6 +10,7 @@ Collector, which fans out to Prometheus, Tempo, and Loki.
 |---|---|---|
 | `otel-collector-config.yaml` | otel-collector | OTLP receivers + Prom/Tempo/Loki exporters |
 | `prometheus.yml` | prometheus | Scrape config — pulls metrics from the collector |
+| `tempo.yml` | tempo | Local trace storage used by the Grafana Tempo datasource |
 | `grafana/datasources/datasources.yml` | grafana | Auto-provision Prom + Tempo + Loki datasources |
 | `grafana/dashboards/` | grafana | Drop dashboard JSONs here (provisioned by Grafana) |
 

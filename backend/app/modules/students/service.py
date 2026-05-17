@@ -5,6 +5,7 @@ Student profile service — get profile, update manual profile, re-sync INS.
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.db.models import Department, Major
 from app.modules.students.models import Student, StudentAcademicProfile, StudentCompletedCourse
 from app.modules.students.schemas import (
     AcademicProfileOut,
@@ -34,6 +35,8 @@ def get_student_profile(db: Session, student: Student) -> StudentProfileResponse
         profile_source=student.profile_source,
         gpa_rules_enabled=gpa_rules_enabled,
         academic_profile=AcademicProfileOut(
+            department_id=profile.department_id if profile else None,
+            major_id=profile.major_id if profile else None,
             department_name=profile.department_name if profile else None,
             major_name=profile.major_name if profile else None,
             academic_year=profile.academic_year if profile else None,
@@ -74,8 +77,31 @@ def update_manual_profile(
         profile = StudentAcademicProfile(student_id=student.id, gpa_is_verified=False)
         db.add(profile)
 
-    profile.department_name = data.department_name
-    profile.major_name = data.major_name
+    department_name = data.department_name
+    major_name = data.major_name
+    if data.department_id is not None:
+        department = db.get(Department, data.department_id)
+        if department is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Department not found.",
+            )
+        department_name = department.name
+    if data.major_id is not None:
+        major = db.get(Major, data.major_id)
+        if major is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Major not found.")
+        major_name = major.name
+        if data.department_id is not None and major.department_id != data.department_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Major does not belong to the selected department.",
+            )
+
+    profile.department_id = data.department_id
+    profile.major_id = data.major_id
+    profile.department_name = department_name
+    profile.major_name = major_name
     profile.academic_year = data.academic_year
     profile.gpa_is_verified = False  # Never trust manually entered GPA
     db.flush()

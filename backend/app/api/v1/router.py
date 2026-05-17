@@ -4,6 +4,7 @@ from app.api.v1.endpoints import (
     admin_catalog,
     auth,
     courses,
+    demo_ops,
     health,
     professor,
     registrations,
@@ -27,6 +28,7 @@ api_router.include_router(professor.router, prefix="/professor", tags=["Professo
 api_router.include_router(registrations.router, prefix="/registrations", tags=["Registrations"])
 api_router.include_router(waitlists.router, prefix="/waitlists", tags=["Waitlists"])
 api_router.include_router(sections.router, prefix="/sections", tags=["Sections"])
+api_router.include_router(demo_ops.router, tags=["Demo Evidence"])
 api_router.include_router(
     student_profiles.router, prefix="/student-profiles", tags=["Student Profiles"]
 )

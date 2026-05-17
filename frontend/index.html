@@ -257,17 +257,73 @@
             <input name="password" type="password" value="student12345" required />
             <button type="submit">Create Student</button>
           </form>
+          <form id="manualProfileForm" class="stack card-form">
+            <h3>Complete Profile</h3>
+            <input name="departmentId" type="number" min="1" placeholder="Department ID" required />
+            <input name="majorId" type="number" min="1" placeholder="Major ID" required />
+            <input name="academicYear" type="number" min="1" max="6" value="3" required />
+            <input name="completedCourseCodes" placeholder="Completed course codes" />
+            <button type="submit">Save Profile</button>
+          </form>
+          <form id="profileLookupForm" class="stack card-form">
+            <h3>Current Profile</h3>
+            <button type="submit">Load Profile</button>
+          </form>
           <form id="registerForm" class="stack card-form">
             <h3>Register</h3>
             <input name="sectionId" type="number" min="1" placeholder="Section ID" required />
             <input name="idempotencyKey" placeholder="unique-key" required />
             <button type="submit">Register</button>
           </form>
+          <form id="dropRegistrationForm" class="stack card-form">
+            <h3>Drop</h3>
+            <input name="enrollmentId" type="number" min="1" placeholder="Enrollment ID" required />
+            <button type="submit">Drop Enrollment</button>
+          </form>
           <form id="waitlistForm" class="stack card-form">
             <h3>Join Waitlist</h3>
             <input name="sectionId" type="number" min="1" placeholder="Section ID" required />
             <button type="submit">Join Waitlist</button>
           </form>
+          <form id="cancelWaitlistForm" class="stack card-form">
+            <h3>Cancel Waitlist</h3>
+            <input name="waitlistEntryId" type="number" min="1" placeholder="Waitlist Entry ID" required />
+            <button type="submit">Cancel Waitlist</button>
+          </form>
+          <div class="button-row">
+            <button id="listRegistrationsButton" type="button" class="ghost">My Registrations</button>
+            <button id="listWaitlistsButton" type="button" class="ghost">My Waitlists</button>
+            <button id="listNotificationsButton" type="button" class="ghost">Notifications</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Live Updates</h2>
+            <span id="websocketState" class="badge muted">Disconnected</span>
+          </div>
+          <form id="websocketForm" class="stack card-form">
+            <h3>Section WebSocket</h3>
+            <input name="sectionId" type="number" min="1" placeholder="Section ID" required />
+            <button type="submit">Connect</button>
+          </form>
+          <button id="disconnectWebsocketButton" type="button" class="ghost">Disconnect</button>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Observability Demo</h2>
+            <span class="badge cool">Report proof</span>
+          </div>
+          <div class="button-grid">
+            <button id="healthButton" type="button" class="ghost">Health</button>
+            <button id="dependencyHealthButton" type="button" class="ghost">Dependency Health</button>
+            <button id="metricsButton" type="button" class="ghost">Metrics Sample</button>
+            <button id="auditLogsButton" type="button" class="ghost">Audit Logs</button>
+            <button id="failedRegistrationButton" type="button" class="ghost">Failed Registration</button>
+          </div>
         </article>
       </section>
 

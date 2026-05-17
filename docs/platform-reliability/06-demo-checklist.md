@@ -10,8 +10,8 @@ docker compose up --build
 
 Useful URLs:
 
-- API through Nginx: `http://localhost:8080`
-- API docs: `http://localhost:8080/docs`
+- API through Nginx: `http://localhost:8081`
+- API docs: `http://localhost:8081/docs`
 - RabbitMQ UI: `http://localhost:15672`
 - Prometheus: `http://localhost:9090`
 - Grafana: `http://localhost:3000`
@@ -31,14 +31,14 @@ Grafana default login:
 Backend health:
 
 ```bash
-curl http://localhost:8080/health
-curl http://localhost:8080/api/v1/health/dependencies
+curl http://localhost:8081/health
+curl http://localhost:8081/api/v1/health/dependencies
 ```
 
 Metrics:
 
 ```bash
-curl http://localhost:8080/metrics
+curl http://localhost:8081/metrics
 ```
 
 Prometheus query examples:
@@ -56,8 +56,8 @@ crsp_websocket_connections
 Call section availability twice. The first call calculates from PostgreSQL. The second call can hit Redis:
 
 ```bash
-curl http://localhost:8080/api/v1/sections/1/availability
-curl http://localhost:8080/api/v1/sections/1/availability
+curl http://localhost:8081/api/v1/sections/1/availability
+curl http://localhost:8081/api/v1/sections/1/availability
 ```
 
 Then check Prometheus for:
@@ -71,7 +71,7 @@ crsp_redis_operations_total
 Open a WebSocket client to:
 
 ```text
-ws://localhost:8080/ws/sections/1
+ws://localhost:8081/ws/sections/1
 ```
 
 Then perform a registration or waitlist action for section `1`. The WebSocket should receive a

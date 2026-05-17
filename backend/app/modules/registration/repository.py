@@ -125,6 +125,18 @@ class RegistrationRepository:
         )
         return int(self.db.execute(stmt).scalar_one())
 
+    def waiting_entries_for_update(self, section_id: int) -> list[models.WaitlistEntry]:
+        stmt = (
+            select(models.WaitlistEntry)
+            .where(
+                models.WaitlistEntry.section_id == section_id,
+                models.WaitlistEntry.status == "waiting",
+            )
+            .order_by(models.WaitlistEntry.position)
+            .with_for_update()
+        )
+        return list(self.db.execute(stmt).scalars())
+
     def next_waitlist_position(self, section_id: int) -> int:
         stmt = select(func.coalesce(func.max(models.WaitlistEntry.position), 0)).where(
             models.WaitlistEntry.section_id == section_id,

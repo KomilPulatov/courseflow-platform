@@ -4,8 +4,11 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.logging import get_logger
 from app.db import models
 from app.modules.scheduling import schemas
+
+logger = get_logger(__name__)
 
 
 class SchedulingService:
@@ -31,6 +34,12 @@ class SchedulingService:
         run.status = "completed"
         run.completed_at = datetime.now(UTC)
         self.db.commit()
+        logger.info(
+            "timetable_suggestion_completed",
+            run_id=run.id,
+            semester_id=run.semester_id,
+            strategy=run.strategy,
+        )
         return schemas.SuggestionRunStartResponse(run_id=run.id, status=run.status)
 
     def get_run(self, run_id: int) -> schemas.SuggestionRunRead:

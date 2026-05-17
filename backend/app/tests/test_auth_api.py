@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.db.models import ExternalAccount, Student, StudentAcademicProfile, User
+from app.db.models import Department, ExternalAccount, Major, Student, StudentAcademicProfile, User
 
 
 def test_manual_student_start_creates_user_and_incomplete_profile(
@@ -60,6 +60,39 @@ def test_manual_student_start_rejects_duplicate_student_number(
 
     assert response.status_code == 409
     assert response.json()["detail"] == "A student with this student number already exists."
+
+
+def test_manual_student_can_complete_profile_with_catalog_ids(client, db_session: Session) -> None:
+    db_session.add(Department(id=1, code="CSE", name="Computer Science"))
+    db_session.add(Major(id=1, department_id=1, code="SE", name="Software Engineering"))
+    db_session.commit()
+    created = client.post(
+        "/api/v1/auth/student/manual-start",
+        json={
+            "student_number": "2310205",
+            "full_name": "Manual Student",
+            "email": "manual.profile@example.com",
+            "password": "secret123",
+        },
+    )
+
+    response = client.put(
+        "/api/v1/student-profiles/me/manual",
+        headers={"Authorization": f"Bearer {created.json()['access_token']}"},
+        json={
+            "department_id": 1,
+            "major_id": 1,
+            "academic_year": 3,
+            "completed_course_codes": ["MSC1010"],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["academic_profile"]["department_id"] == 1
+    assert body["academic_profile"]["major_id"] == 1
+    assert body["academic_profile"]["department_name"] == "Computer Science"
+    assert body["completed_courses"][0]["course_code"] == "MSC1010"
 
 
 def test_ins_login_syncs_verified_profile(client, db_session: Session, monkeypatch) -> None:

@@ -7,9 +7,11 @@ const state = {
 const authState = document.querySelector("#authState");
 const professorAuthState = document.querySelector("#professorAuthState");
 const studentAuthState = document.querySelector("#studentAuthState");
+const websocketState = document.querySelector("#websocketState");
 const eventLog = document.querySelector("#eventLog");
 const catalogResults = document.querySelector("#catalogResults");
 const sectionResults = document.querySelector("#sectionResults");
+let sectionSocket = null;
 
 function setAuthState() {
   authState.textContent = state.token ? "Admin token loaded" : "Signed out";
@@ -18,6 +20,11 @@ function setAuthState() {
   professorAuthState.className = `badge ${state.professorToken ? "warm" : "muted"}`;
   studentAuthState.textContent = state.studentToken ? "Student token loaded" : "Signed out";
   studentAuthState.className = `badge ${state.studentToken ? "warm" : "muted"}`;
+}
+
+function setWebsocketState(label, active = false) {
+  websocketState.textContent = label;
+  websocketState.className = `badge ${active ? "cool" : "muted"}`;
 }
 
 function tokenForRole(role) {
@@ -110,6 +117,13 @@ function readCsvIds(value) {
     .map((item) => item.trim())
     .filter(Boolean)
     .map((item) => Number(item));
+}
+
+function readCsvCodes(value) {
+  return value
+    .split(",")
+    .map((item) => item.trim().toUpperCase())
+    .filter(Boolean);
 }
 
 function toIsoFromLocal(value) {
@@ -444,6 +458,36 @@ document.querySelector("#manualStudentForm").addEventListener("submit", async (e
   }
 });
 
+document.querySelector("#manualProfileForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  try {
+    const result = await request("/api/v1/student-profiles/me/manual", {
+      method: "PUT",
+      role: "student",
+      body: JSON.stringify({
+        department_id: Number(formData.get("departmentId")),
+        major_id: Number(formData.get("majorId")),
+        academic_year: Number(formData.get("academicYear")),
+        completed_course_codes: readCsvCodes(String(formData.get("completedCourseCodes") ?? "")),
+      }),
+    });
+    log("Manual profile saved", result);
+  } catch (error) {
+    log("Manual profile failed", error.message);
+  }
+});
+
+document.querySelector("#profileLookupForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    const result = await request("/api/v1/student-profiles/me", { role: "student" });
+    log("Loaded student profile", result);
+  } catch (error) {
+    log("Profile load failed", error.message);
+  }
+});
+
 document.querySelector("#registerForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const formData = new FormData(event.currentTarget);
@@ -462,6 +506,20 @@ document.querySelector("#registerForm").addEventListener("submit", async (event)
   }
 });
 
+document.querySelector("#dropRegistrationForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const enrollmentId = Number(new FormData(event.currentTarget).get("enrollmentId"));
+  try {
+    const result = await request(`/api/v1/registrations/${enrollmentId}`, {
+      method: "DELETE",
+      role: "student",
+    });
+    log("Drop result", result);
+  } catch (error) {
+    log("Drop failed", error.message);
+  }
+});
+
 document.querySelector("#waitlistForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const sectionId = Number(new FormData(event.currentTarget).get("sectionId"));
@@ -474,6 +532,47 @@ document.querySelector("#waitlistForm").addEventListener("submit", async (event)
     log("Waitlist result", result);
   } catch (error) {
     log("Waitlist failed", error.message);
+  }
+});
+
+document.querySelector("#cancelWaitlistForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const waitlistEntryId = Number(new FormData(event.currentTarget).get("waitlistEntryId"));
+  try {
+    const result = await request(`/api/v1/waitlists/${waitlistEntryId}`, {
+      method: "DELETE",
+      role: "student",
+    });
+    log("Waitlist cancel result", result);
+  } catch (error) {
+    log("Waitlist cancel failed", error.message);
+  }
+});
+
+document.querySelector("#listRegistrationsButton").addEventListener("click", async () => {
+  try {
+    const result = await request("/api/v1/registrations/me", { role: "student" });
+    log("My registrations", result);
+  } catch (error) {
+    log("My registrations failed", error.message);
+  }
+});
+
+document.querySelector("#listWaitlistsButton").addEventListener("click", async () => {
+  try {
+    const result = await request("/api/v1/waitlists/me", { role: "student" });
+    log("My waitlists", result);
+  } catch (error) {
+    log("My waitlists failed", error.message);
+  }
+});
+
+document.querySelector("#listNotificationsButton").addEventListener("click", async () => {
+  try {
+    const result = await request("/api/v1/notifications/me", { role: "student" });
+    log("My notifications", result);
+  } catch (error) {
+    log("Notifications failed", error.message);
   }
 });
 
@@ -503,6 +602,90 @@ document.querySelector("#eligibilityForm").addEventListener("submit", async (eve
     log("Loaded eligibility preview", eligibility);
   } catch (error) {
     log("Eligibility preview failed", error.message);
+  }
+});
+
+document.querySelector("#websocketForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const sectionId = Number(new FormData(event.currentTarget).get("sectionId"));
+  if (sectionSocket) {
+    sectionSocket.close();
+  }
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+  sectionSocket = new WebSocket(`${protocol}://${window.location.host}/ws/sections/${sectionId}`);
+  setWebsocketState(`Connecting ${sectionId}`, true);
+  sectionSocket.addEventListener("open", () => {
+    setWebsocketState(`Section ${sectionId}`, true);
+    log("WebSocket connected", { section_id: sectionId });
+  });
+  sectionSocket.addEventListener("message", (message) => {
+    try {
+      log("WebSocket message", JSON.parse(message.data));
+    } catch {
+      log("WebSocket message", message.data);
+    }
+  });
+  sectionSocket.addEventListener("close", () => {
+    setWebsocketState("Disconnected");
+    sectionSocket = null;
+    log("WebSocket disconnected", { section_id: sectionId });
+  });
+  sectionSocket.addEventListener("error", () => {
+    log("WebSocket error", { section_id: sectionId });
+  });
+});
+
+document.querySelector("#disconnectWebsocketButton").addEventListener("click", () => {
+  if (sectionSocket) {
+    sectionSocket.close();
+  }
+});
+
+document.querySelector("#healthButton").addEventListener("click", async () => {
+  try {
+    log("Health", await request("/health"));
+  } catch (error) {
+    log("Health failed", error.message);
+  }
+});
+
+document.querySelector("#dependencyHealthButton").addEventListener("click", async () => {
+  try {
+    log("Dependency health", await request("/api/v1/health/dependencies"));
+  } catch (error) {
+    log("Dependency health failed", error.message);
+  }
+});
+
+document.querySelector("#metricsButton").addEventListener("click", async () => {
+  try {
+    const result = await request("/metrics");
+    log("Metrics sample", result.split("\n").slice(0, 24).join("\n"));
+  } catch (error) {
+    log("Metrics failed", error.message);
+  }
+});
+
+document.querySelector("#auditLogsButton").addEventListener("click", async () => {
+  try {
+    log("Audit logs", await request("/api/v1/admin/audit-logs", { role: "admin" }));
+  } catch (error) {
+    log("Audit logs failed", error.message);
+  }
+});
+
+document.querySelector("#failedRegistrationButton").addEventListener("click", async () => {
+  try {
+    await request("/api/v1/registrations", {
+      method: "POST",
+      role: "student",
+      body: JSON.stringify({
+        section_id: 999999,
+        idempotency_key: `demo-failure-${Date.now()}`,
+      }),
+    });
+  } catch (error) {
+    log("Expected failed registration", error.message);
   }
 });
 
