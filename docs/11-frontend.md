@@ -9,8 +9,10 @@ to WebSocket updates for registration and waitlist events.
 The same Vite build owns all browser routes:
 
 ```text
-/                     landing and login choice
-/student/*            student dashboard, catalog, registration, waitlist
+/                     redirects to the unified login route
+/login                unified student, professor, and admin login
+/demo                 demo console for the complete academic workflow
+/admin/*              admin catalog, delivery, scheduling, and ops console
 /professor/*          professor dashboard, sections, room options, timetable
 /app/*                operational health/settings utility pages
 ```
@@ -54,6 +56,8 @@ that frontend container. Backend-only routes such as `/api`, `/ws`, `/docs`,
 - API paths must stay under `/api/v1`.
 - WebSocket paths must stay under `/ws`.
 - Browser routes belong in `frontend/src/router.tsx`, not in FastAPI.
+- Feature UI belongs inside the single `frontend/src/` app. Do not add nested
+  Vite apps or commit generated `dist/`/prebuilt browser assets.
 - Browser-facing environment variables must be prefixed with `VITE_`.
 - `package-lock.json` is committed and CI uses `npm ci`.
 - Generated folders such as `node_modules/` and `dist/` are ignored.

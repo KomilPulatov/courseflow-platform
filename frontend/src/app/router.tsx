@@ -30,6 +30,7 @@ import {
   SchedulingRunPage,
 } from "../features/admin/ops-pages";
 import { DemoPage } from "../features/demo/DemoPage";
+import { UnifiedLoginPage } from "../features/login/UnifiedLoginPage";
 import { App as AppShellApp } from "../appShell/App";
 import { App as ProfessorApp } from "../professor/App";
 
@@ -37,7 +38,8 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/demo" replace />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<UnifiedLoginPage />} />
         <Route path="/demo" element={<DemoPage />} />
         <Route path="/app/*" element={<AppShellApp />} />
         <Route path="/professor/*" element={<ProfessorApp />} />
