@@ -5,6 +5,18 @@ import { AppProviders } from "./providers";
 import { AppRouter } from "./router";
 
 describe("AppRouter", () => {
+  it("renders the unified login experience at /login", () => {
+    window.history.pushState({}, "", "/login");
+    render(
+      <AppProviders>
+        <AppRouter />
+      </AppProviders>,
+    );
+
+    expect(screen.getByText("Unified access")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+  });
+
   it("renders the demo experience at /demo", () => {
     window.history.pushState({}, "", "/demo");
     render(
