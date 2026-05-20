@@ -113,7 +113,7 @@ export function DemoPage() {
               authStore.admin.set(result.access_token);
               setAdminToken(result.access_token);
             })}>
-              <input name="email" defaultValue="admin@crsp.example.com" />
+              <input name="email" defaultValue="admin@crsp.local" />
               <input name="password" type="password" defaultValue="admin12345" />
             </DemoForm>
             <DemoForm title="Professor login" onSubmit={onForm(async (data) => {

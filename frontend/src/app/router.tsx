@@ -1,48 +1,25 @@
-import { Navigate, Route, Routes } from "react-router-dom";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import ProtectedRoute from "../components/ProtectedRoute";
-import { AdminLayout, AdminProtectedRoute } from "../features/admin/AdminLayout";
-import { LoginPage } from "../features/admin/LoginPage";
-import {
-  CourseDetailPage,
-  CourseEligibilityRulesPage,
-  CourseListPage,
-  CoursePrerequisitesPage,
-  NewCoursePage,
-} from "../features/admin/catalog-pages";
-import {
-  DepartmentPage,
-  MajorPage,
-  OfferingPage,
-  ProfessorPage,
-  RegistrationPeriodPage,
-  RoomPage,
-  SectionDetailPage,
-  SectionListPage,
-  SectionRoomsPage,
-  SemesterPage,
-} from "../features/admin/delivery-pages";
-import {
-  AuditLogsPage,
-  DashboardPage,
-  ObservabilityPage,
-  SchedulingPage,
-  SchedulingRunPage,
-} from "../features/admin/ops-pages";
-import { DemoPage } from "../features/demo/DemoPage";
-import { UnifiedLoginPage } from "../features/login/UnifiedLoginPage";
 import { App as AppShellApp } from "../appShell/App";
+import { DemoPage } from "../features/demo/DemoPage";
 import { App as ProfessorApp } from "../professor/App";
+import AdminDashboard from "../pages/AdminDashboard";
 import Catalog from "../pages/Catalog";
 import CourseDetail from "../pages/CourseDetail";
 import Dashboard from "../pages/Dashboard";
 import EligibilityPage from "../pages/EligibilityPage";
+import INSLogin from "../pages/INSLogin";
+import LoginApp from "../pages/LoginApp";
+import LoginPlaceholder from "../pages/LoginPlaceholder";
+import ManualLogin from "../pages/ManualLogin";
 import ManualProfile from "../pages/ManualProfile";
+import ManualStart from "../pages/ManualStart";
 import MyRegistrations from "../pages/MyRegistrations";
 import Notifications from "../pages/Notifications";
 import Profile from "../pages/Profile";
 import SectionDetail from "../pages/SectionDetail";
+import StudentLoginChoice from "../pages/StudentLoginChoice";
 import Timetable from "../pages/Timetable";
 import Waitlist from "../pages/Waitlist";
 
@@ -51,12 +28,19 @@ export function AppRouter() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<UnifiedLoginPage />} />
+        <Route path="/login" element={<LoginApp />} />
+        <Route path="/login/student" element={<StudentLoginChoice />} />
+        <Route path="/login/admin" element={<AdminDashboard />} />
+        <Route path="/login/professor" element={<LoginPlaceholder role="Professor" />} />
+        <Route path="/student/ins-login" element={<INSLogin />} />
+        <Route path="/student/manual-login" element={<ManualLogin />} />
+        <Route path="/student/manual-start" element={<ManualStart />} />
+        <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/demo" element={<DemoPage />} />
         <Route path="/app/*" element={<AppShellApp />} />
         <Route path="/professor/*" element={<ProfessorApp />} />
-        <Route path="/admin/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/student" element={<Dashboard />} />
           <Route path="/student/profile" element={<Profile />} />
           <Route path="/student/profile/manual" element={<ManualProfile />} />
@@ -69,34 +53,7 @@ export function AppRouter() {
           <Route path="/student/waitlist" element={<Waitlist />} />
           <Route path="/student/notifications" element={<Notifications />} />
         </Route>
-        <Route element={<AdminProtectedRoute />}>
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<DashboardPage />} />
-            <Route path="semesters" element={<SemesterPage />} />
-            <Route path="departments" element={<DepartmentPage />} />
-            <Route path="majors" element={<MajorPage />} />
-            <Route path="courses" element={<CourseListPage />} />
-            <Route path="courses/new" element={<NewCoursePage />} />
-            <Route path="courses/:courseId" element={<CourseDetailPage />} />
-            <Route path="courses/:courseId/prerequisites" element={<CoursePrerequisitesPage />} />
-            <Route
-              path="courses/:courseId/eligibility-rules"
-              element={<CourseEligibilityRulesPage />}
-            />
-            <Route path="professors" element={<ProfessorPage />} />
-            <Route path="rooms" element={<RoomPage />} />
-            <Route path="offerings" element={<OfferingPage />} />
-            <Route path="sections" element={<SectionListPage />} />
-            <Route path="sections/:sectionId" element={<SectionDetailPage />} />
-            <Route path="sections/:sectionId/rooms" element={<SectionRoomsPage />} />
-            <Route path="registration-periods" element={<RegistrationPeriodPage />} />
-            <Route path="scheduling" element={<SchedulingPage />} />
-            <Route path="scheduling/:runId" element={<SchedulingRunPage />} />
-            <Route path="audit-logs" element={<AuditLogsPage />} />
-            <Route path="observability" element={<ObservabilityPage />} />
-          </Route>
-        </Route>
-        <Route path="*" element={<Navigate to="/app/not-found" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );

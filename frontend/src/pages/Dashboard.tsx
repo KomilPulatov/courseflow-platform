@@ -6,6 +6,7 @@ import { getMyWaitlists } from '../api/waitlists'
 import { useAuth } from '../hooks/useAuth'
 import ProfileSummary from '../components/ProfileSummary'
 import NotificationBadge from '../components/NotificationBadge'
+import styles from './Dashboard.module.css'
 
 export default function Dashboard() {
   const { logout } = useAuth()
@@ -25,64 +26,65 @@ export default function Dashboard() {
     profile && !profile.academic_profile && profile.profile_source === 'manual'
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-        <span className="font-bold text-gray-900">CRSP</span>
-        <div className="flex items-center gap-4">
+    <div className={styles.shell}>
+      <header className={styles.header}>
+        <div className={styles.brand}>
+          <span className={styles.brandBadge}>CR</span>
+          <div className={styles.brandText}>
+            <span className={styles.brandTitle}>IUT Portal</span>
+            <span className={styles.brandSubtitle}>CourseFlow Dashboard</span>
+          </div>
+        </div>
+        <div className={styles.headerActions}>
           <NotificationBadge count={0} />
-          <button onClick={logout} className="text-sm text-gray-500 hover:text-gray-700">
+          <button onClick={logout} className={styles.logoutButton}>
             Log out
           </button>
         </div>
       </header>
+      <div className={styles.divider} role="separator" />
 
-      <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+      <main className={styles.main}>
         {profile && <ProfileSummary profile={profile} />}
 
         {needsProfile && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm">
-            <p className="font-medium text-amber-800">Complete your profile</p>
-            <p className="text-amber-600 mt-1">
+          <div className={styles.notice}>
+            <p className={styles.noticeTitle}>Complete your profile</p>
+            <p className={styles.noticeText}>
               Add your department, major, year, and completed courses to start registering.
             </p>
-            <Link
-              to="/student/profile/manual"
-              className="mt-2 inline-block text-amber-700 font-semibold hover:underline"
-            >
-              Complete now →
+            <Link to="/student/profile/manual" className={styles.noticeLink}>
+              Complete now
             </Link>
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className={styles.tileGrid}>
           {[
-            { label: 'Enrollments', count: regCount, href: '/student/registration', color: 'text-blue-600' },
-            { label: 'Waitlists', count: waitCount, href: '/student/waitlist', color: 'text-amber-600' },
-          ].map(({ label, count, href, color }) => (
-            <Link
-              key={label}
-              to={href}
-              className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-sm transition-shadow"
-            >
-              <p className={`text-3xl font-bold ${color}`}>{count}</p>
-              <p className="text-sm text-gray-500 mt-1">{label}</p>
+            { label: 'Enrollments', count: regCount, href: '/student/registration', tone: 'primary' },
+            { label: 'Waitlists', count: waitCount, href: '/student/waitlist', tone: 'secondary' },
+          ].map(({ label, count, href, tone }) => (
+            <Link key={label} to={href} className={styles.tile}>
+              <p
+                className={`${styles.tileCount} ${tone === 'secondary' ? styles.tileCountAlt : ''}`}
+              >
+                {count}
+              </p>
+              <p className={styles.tileLabel}>{label}</p>
             </Link>
           ))}
         </div>
 
-        <nav className="space-y-2">
+        <nav className={styles.navList}>
           {[
-            { label: '📚 Course catalog', href: '/student/catalog' },
-            { label: '📅 My timetable', href: '/student/registration/timetable' },
-            { label: '👤 My profile', href: '/student/profile' },
-            { label: '🔔 Notifications', href: '/student/notifications' },
+            { label: 'Course catalog', href: '/student/catalog' },
+            { label: 'My timetable', href: '/student/registration/timetable' },
+            { label: 'My profile', href: '/student/profile' },
+            { label: 'Notifications', href: '/student/notifications' },
           ].map(({ label, href }) => (
-            <Link
-              key={href}
-              to={href}
-              className="block bg-white border border-gray-200 rounded-xl px-5 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              {label}
+            <Link key={href} to={href} className={styles.navLink}>
+              <span>{label}</span>
+              <span className={styles.navArrow}>View</span>
             </Link>
           ))}
         </nav>

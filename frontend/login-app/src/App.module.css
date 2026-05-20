@@ -1,0 +1,600 @@
+/* App.module.css — CSS Modules for the IUT/eClass Login React App */
+
+/* ── Page shell ──────────────────────────────────────────────── */
+.root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+.header {
+  background: linear-gradient(135deg, var(--lp-navy-deep) 0%, var(--lp-navy) 100%);
+  padding: 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+.logo:hover {
+  text-decoration: none;
+}
+
+.logoBadge {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.logoBadge svg {
+  width: 22px;
+  height: 22px;
+}
+
+.logoText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.uniName {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.iutMark {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  font-style: italic;
+  line-height: 1;
+}
+
+.headerLabel {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
+  padding-left: 14px;
+  margin-left: 2px;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+}
+
+.langSelect {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 6px;
+  padding: 5px 28px 5px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23fff' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  transition: background-color 0.2s;
+  width: auto;
+  box-shadow: none;
+  outline: none;
+}
+
+.langSelect:hover {
+  background-color: rgba(255, 255, 255, 0.18);
+}
+
+.langSelect option {
+  background: var(--lp-navy);
+  color: white;
+}
+
+/* ── Blue divider (INS signature line) ───────────────────────── */
+.dividerLine {
+  height: 3px;
+  background: linear-gradient(90deg, var(--lp-navy) 0%, var(--lp-divider) 45%, var(--lp-teal) 100%);
+  flex-shrink: 0;
+}
+
+/* ── Main content ─────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+/* INS split card */
+.card {
+  background: var(--lp-card);
+  border: 1px solid var(--lp-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 28px rgba(27, 45, 91, 0.14);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  max-width: 860px;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* ── LEFT panel: Form ────────────────────────────────────────── */
+.formPanel {
+  padding: 44px 40px 40px;
+  border-right: 1px solid var(--lp-border);
+}
+
+/* INS heading: "IUT Portal System" */
+.portalTitle {
+  margin-bottom: 28px;
+  line-height: 1.1;
+  font-family: 'Inter', sans-serif;
+}
+
+.iutBold {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--lp-blue-link);
+  font-style: italic;
+  letter-spacing: -0.02em;
+}
+
+.portalRest {
+  font-size: 1.55rem;
+  font-weight: 400;
+  color: var(--lp-text);
+  letter-spacing: -0.01em;
+}
+
+/* eClass tab bar */
+.tabs {
+  display: flex;
+  border-bottom: 2px solid var(--lp-border);
+  margin-bottom: 24px;
+  gap: 0;
+}
+
+.tab {
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--lp-muted);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.18s, border-color 0.18s;
+  letter-spacing: 0.01em;
+  font-family: inherit;
+  width: auto;
+  box-shadow: none;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* Verified badge pill on INS Login tab */
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(43, 158, 160, 0.15);
+  color: var(--lp-teal);
+  border: 1px solid rgba(43, 158, 160, 0.3);
+}
+
+.tabActive .tabBadge {
+  background: rgba(43, 158, 160, 0.22);
+}
+
+/* Helper text below tabs */
+.tabHelp {
+  font-size: 0.78rem;
+  color: var(--lp-muted);
+  margin-bottom: 16px;
+  line-height: 1.45;
+}
+
+.tab:hover {
+  color: var(--lp-navy);
+  transform: none;
+  box-shadow: none;
+}
+
+.tabActive {
+  color: var(--lp-navy);
+  border-bottom-color: var(--lp-teal);
+}
+
+/* INS verified note box */
+.insNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(43, 158, 160, 0.08);
+  border: 1px solid rgba(43, 158, 160, 0.25);
+  border-left: 3px solid var(--lp-teal);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #1c4d4e;
+  line-height: 1.45;
+}
+
+.insNoteIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.insNoteIcon svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--lp-teal);
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Manual Start info note */
+.infoNote {
+  padding: 10px 14px;
+  background: #f0f4fb;
+  border: 1px solid var(--lp-border);
+  border-left: 3px solid var(--lp-blue-link);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: var(--lp-muted);
+  line-height: 1.45;
+}
+
+/* Form fields */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.roleGroup {
+  margin-bottom: 16px;
+}
+
+.roleLabel {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--lp-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.roleSelect {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--lp-border);
+  border-bottom: 2px solid var(--lp-input-bd);
+  border-radius: 2px;
+  padding: 0 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--lp-text);
+  background: var(--lp-input-bg);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23445b7c' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+}
+
+.roleSelect:focus {
+  background: #ffffff;
+  border-color: var(--lp-teal);
+  border-bottom-color: var(--lp-teal);
+  box-shadow: 0 0 0 3px rgba(43, 158, 160, 0.13);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--lp-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  display: block;
+}
+
+.field input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--lp-border);
+  border-bottom: 2px solid var(--lp-input-bd);
+  border-radius: 2px;
+  padding: 0 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--lp-text);
+  background: var(--lp-input-bg);
+  outline: none;
+  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+  box-shadow: none;
+}
+
+.field input:focus {
+  background: #ffffff;
+  border-color: var(--lp-teal);
+  border-bottom-color: var(--lp-teal);
+  box-shadow: 0 0 0 3px rgba(43, 158, 160, 0.13);
+}
+
+.field input::placeholder {
+  color: #aab4c4;
+  font-size: 0.88rem;
+}
+
+/* LOGIN button — INS crimson */
+.btnLogin {
+  width: 100%;
+  height: 46px;
+  background: var(--lp-crimson);
+  color: #ffffff;
+  border: none;
+  border-radius: 3px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.18s, transform 0.12s, box-shadow 0.18s;
+  box-shadow: 0 4px 14px rgba(192, 48, 43, 0.28);
+  margin-top: 4px;
+}
+
+.btnLogin:hover:not(:disabled) {
+  background: var(--lp-crimson-hv);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(192, 48, 43, 0.34);
+}
+
+.btnLogin:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.btnLoading {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+/* "Find ID / PW" link row */
+.formLinks {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.formLinks a {
+  font-size: 0.8rem;
+  color: var(--lp-link);
+  text-decoration: none;
+  transition: text-decoration 0.15s;
+}
+
+.formLinks a:hover {
+  text-decoration: underline;
+}
+
+/* Status messages */
+.status {
+  padding: 10px 14px;
+  border-radius: 4px;
+  font-size: 0.84rem;
+  font-weight: 500;
+  animation: fadeSlideIn 0.22s ease;
+}
+
+.statusError {
+  background: #fff0f0;
+  border: 1px solid #f5c6c6;
+  color: #b02020;
+}
+
+.statusSuccess {
+  background: #f0fbf4;
+  border: 1px solid #b2e0bf;
+  color: #1a6e38;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── RIGHT panel: Quick Links ────────────────────────────────── */
+.linksPanel {
+  padding: 44px 32px 40px;
+  background: var(--lp-panel-right);
+  display: flex;
+  flex-direction: column;
+}
+
+.linksHeading {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lp-muted);
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--lp-border);
+}
+
+/* 2×2 grid — matching INS portal */
+.linksGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  flex: 1;
+}
+
+.linkTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px 10px;
+  background: #ffffff;
+  border: 1px solid var(--lp-border);
+  border-radius: 4px;
+  text-decoration: none;
+  color: var(--lp-text);
+  font-size: 0.77rem;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.35;
+  transition: border-color 0.18s, box-shadow 0.18s, transform 0.14s, color 0.18s;
+}
+
+.linkTile:hover {
+  border-color: var(--lp-teal);
+  box-shadow: 0 4px 14px rgba(43, 158, 160, 0.15);
+  transform: translateY(-2px);
+  color: var(--lp-navy);
+  text-decoration: none;
+}
+
+.linkIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.linkIcon svg {
+  width: 30px;
+  height: 30px;
+  stroke: var(--lp-muted);
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.18s;
+}
+
+.linkTile:hover .linkIcon svg {
+  stroke: var(--lp-teal);
+}
+
+.linkLabel {
+  display: block;
+}
+
+/* eClass-style external nav row */
+.navLinks {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--lp-border);
+}
+
+.navLinks a {
+  font-size: 0.74rem;
+  color: var(--lp-link);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+
+.navLinks a:hover {
+  color: var(--lp-teal);
+  text-decoration: underline;
+}
+
+/* ── Footer ──────────────────────────────────────────────────── */
+.footer {
+  background: var(--lp-navy);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.71rem;
+  text-align: center;
+  padding: 14px 24px;
+  line-height: 1.8;
+  flex-shrink: 0;
+  letter-spacing: 0.01em;
+}
+
+.footer a {
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+}
+
+.footer a:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 680px) {
+  .card {
+    grid-template-columns: 1fr;
+  }
+  .formPanel {
+    border-right: none;
+    border-bottom: 1px solid var(--lp-border);
+    padding: 32px 24px;
+  }
+  .linksPanel {
+    padding: 28px 24px;
+  }
+  .header {
+    padding: 0 20px;
+    height: 56px;
+  }
+  .headerLabel {
+    display: none;
+  }
+  .main {
+    padding: 28px 16px;
+  }
+}

@@ -57,8 +57,24 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const contentType = response.headers.get("content-type") ?? "";
   const data = contentType.includes("application/json") ? await response.json() : await response.text();
   if (!response.ok) {
-    const message =
-      typeof data === "string" ? data || "Request failed." : data.detail ?? data.message ?? "Request failed.";
+    let message = "Request failed.";
+    if (typeof data === "string") {
+      message = data || message;
+    } else if (data && typeof data === "object") {
+      const detail = (data as { detail?: unknown; message?: unknown }).detail;
+      if (Array.isArray(detail)) {
+        const items = detail
+          .map((item) => (item && typeof item === "object" && "msg" in item ? (item as { msg: string }).msg : ""))
+          .filter(Boolean);
+        if (items.length > 0) {
+          message = items.join(", ");
+        }
+      } else if (detail) {
+        message = String(detail);
+      } else if ((data as { message?: unknown }).message) {
+        message = String((data as { message?: unknown }).message);
+      }
+    }
     throw new Error(message);
   }
   return data as T;
