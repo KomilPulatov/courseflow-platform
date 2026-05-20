@@ -1,10 +1,14 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { AppProviders } from "./providers";
 import { AppRouter } from "./router";
 
 describe("AppRouter", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it("renders the unified login experience at /login", () => {
     window.history.pushState({}, "", "/login");
     render(
@@ -13,7 +17,11 @@ describe("AppRouter", () => {
       </AppProviders>,
     );
 
-    expect(screen.getByText("Unified access")).toBeInTheDocument();
+    expect(screen.getByText("Student and professor access")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Admin login" })).toHaveAttribute(
+      "href",
+      "/admin/login",
+    );
     expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
   });
 
@@ -28,8 +36,18 @@ describe("AppRouter", () => {
     expect(screen.getByText("CRSP Demo Console")).toBeInTheDocument();
   });
 
+  it("redirects unauthenticated student requests to login", () => {
+    window.history.pushState({}, "", "/student/catalog");
+    render(
+      <AppProviders>
+        <AppRouter />
+      </AppProviders>,
+    );
+
+    expect(screen.getByText("Student and professor access")).toBeInTheDocument();
+  });
+
   it("redirects unauthenticated admin requests to login", () => {
-    localStorage.clear();
     window.history.pushState({}, "", "/admin/courses");
     render(
       <AppProviders>

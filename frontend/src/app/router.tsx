@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { BrowserRouter } from "react-router-dom";
 
+import ProtectedRoute from "../components/ProtectedRoute";
 import { AdminLayout, AdminProtectedRoute } from "../features/admin/AdminLayout";
 import { LoginPage } from "../features/admin/LoginPage";
 import {
@@ -33,6 +34,17 @@ import { DemoPage } from "../features/demo/DemoPage";
 import { UnifiedLoginPage } from "../features/login/UnifiedLoginPage";
 import { App as AppShellApp } from "../appShell/App";
 import { App as ProfessorApp } from "../professor/App";
+import Catalog from "../pages/Catalog";
+import CourseDetail from "../pages/CourseDetail";
+import Dashboard from "../pages/Dashboard";
+import EligibilityPage from "../pages/EligibilityPage";
+import ManualProfile from "../pages/ManualProfile";
+import MyRegistrations from "../pages/MyRegistrations";
+import Notifications from "../pages/Notifications";
+import Profile from "../pages/Profile";
+import SectionDetail from "../pages/SectionDetail";
+import Timetable from "../pages/Timetable";
+import Waitlist from "../pages/Waitlist";
 
 export function AppRouter() {
   return (
@@ -44,6 +56,19 @@ export function AppRouter() {
         <Route path="/app/*" element={<AppShellApp />} />
         <Route path="/professor/*" element={<ProfessorApp />} />
         <Route path="/admin/login" element={<LoginPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/student" element={<Dashboard />} />
+          <Route path="/student/profile" element={<Profile />} />
+          <Route path="/student/profile/manual" element={<ManualProfile />} />
+          <Route path="/student/catalog" element={<Catalog />} />
+          <Route path="/student/courses/:courseId" element={<CourseDetail />} />
+          <Route path="/student/sections/:sectionId" element={<SectionDetail />} />
+          <Route path="/student/sections/:sectionId/eligibility" element={<EligibilityPage />} />
+          <Route path="/student/registration" element={<MyRegistrations />} />
+          <Route path="/student/registration/timetable" element={<Timetable />} />
+          <Route path="/student/waitlist" element={<Waitlist />} />
+          <Route path="/student/notifications" element={<Notifications />} />
+        </Route>
         <Route element={<AdminProtectedRoute />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<DashboardPage />} />
