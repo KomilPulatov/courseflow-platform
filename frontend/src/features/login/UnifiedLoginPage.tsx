@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { authStore, request } from "../../lib/api";
 
-type Role = "student-ins" | "student-manual" | "professor" | "admin";
+type Role = "student-ins" | "student-manual" | "professor";
 type Mode = "login" | "register";
 type TokenResponse = { access_token: string; role?: string; student_number?: string };
 
@@ -11,19 +11,26 @@ const roleLabels: Record<Role, string> = {
   "student-ins": "Student (INS verified)",
   "student-manual": "Student (manual account)",
   professor: "Professor",
-  admin: "Administrator",
 };
 
 function dashboardPath(role: Role) {
-  if (role === "admin") return "/admin";
   if (role === "professor") return "/professor";
-  return "/demo";
+  return "/student";
 }
 
 function tokenStore(role: Role) {
-  if (role === "admin") return authStore.admin;
   if (role === "professor") return authStore.professor;
   return authStore.student;
+}
+
+function saveRoleToken(role: Role, token: string, studentNumber?: string) {
+  tokenStore(role).set(token);
+  if (role !== "professor") {
+    localStorage.setItem("crsp_token", token);
+    if (studentNumber) {
+      localStorage.setItem("crsp_user_id", studentNumber);
+    }
+  }
 }
 
 function fieldValue(data: FormData, name: string) {
@@ -50,9 +57,7 @@ export function UnifiedLoginPage() {
           ? "/api/v1/auth/student/ins-login"
           : role === "student-manual"
             ? "/api/v1/auth/student/manual-login"
-            : role === "professor"
-              ? "/api/v1/auth/professor/login"
-              : "/api/v1/auth/admin/login";
+            : "/api/v1/auth/professor/login";
 
     const body =
       mode === "register"
@@ -75,7 +80,7 @@ export function UnifiedLoginPage() {
     try {
       const result = await request<TokenResponse>(endpoint, { method: "POST", body });
       const activeRole = mode === "register" ? "student-manual" : role;
-      tokenStore(activeRole).set(result.access_token);
+      saveRoleToken(activeRole, result.access_token, result.student_number);
       setStatus({ tone: "success", message: "Signed in. Opening your workspace..." });
       window.setTimeout(() => navigate(dashboardPath(activeRole), { replace: true }), 450);
     } catch (error) {
@@ -91,22 +96,25 @@ export function UnifiedLoginPage() {
   return (
     <main className="portal-login-shell">
       <header className="portal-login-header">
-        <Link to="/demo" className="portal-login-brand" aria-label="CourseFlow demo">
-          <span className="brand-mark">CF</span>
+        <Link to="/login" className="portal-login-brand" aria-label="CourseFlow login">
+          <span className="portal-login-logo">
+            <img src="/portal-assets/images/iut-logo.gif" alt="" />
+          </span>
           <span>
             <strong>CourseFlow</strong>
             <small>IUT registration platform</small>
           </span>
         </Link>
-        <Link to="/demo" className="subtle-button">Demo console</Link>
+        <Link to="/admin/login" className="subtle-button">Admin login</Link>
       </header>
 
       <section className="portal-login-layout">
         <div className="portal-login-copy">
-          <p className="eyebrow">Unified access</p>
+          <p className="eyebrow">Student and professor access</p>
           <h1>IUT Portal System</h1>
           <p className="muted">
-            Sign in as a student, professor, or administrator from the same CourseFlow frontend.
+            Sign in to test course registration as a student or manage assigned sections as a professor.
+            Administrators continue through the dedicated admin console.
           </p>
           <div className="portal-login-links" aria-label="External resources">
             <a href="http://ins.inha.uz/" target="_blank" rel="noreferrer">INS Portal</a>
@@ -198,9 +206,7 @@ function StudentInsFields() {
 
 function EmailPasswordFields({ role }: { role: Role }) {
   const defaults =
-    role === "admin"
-      ? { email: "admin@crsp.example.com", password: "admin12345" }
-      : role === "professor"
+    role === "professor"
         ? { email: "professor@crsp.example.com", password: "prof12345" }
         : { email: "student@crsp.example.com", password: "student12345" };
 

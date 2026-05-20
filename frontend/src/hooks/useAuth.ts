@@ -13,8 +13,9 @@ export function useAuth() {
 
   const logout = useCallback(() => {
     localStorage.removeItem('crsp_token')
+    localStorage.removeItem('crspStudentToken')
     localStorage.removeItem('crsp_user_id')
-    navigate('/')
+    navigate('/login')
   }, [navigate])
 
   const getUserId = useCallback(
