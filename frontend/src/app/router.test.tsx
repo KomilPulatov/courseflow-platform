@@ -9,7 +9,7 @@ describe("AppRouter", () => {
     localStorage.clear();
   });
 
-  it("renders the unified login experience at /login", () => {
+  it("renders the login app at /login", () => {
     window.history.pushState({}, "", "/login");
     render(
       <AppProviders>
@@ -17,12 +17,8 @@ describe("AppRouter", () => {
       </AppProviders>,
     );
 
-    expect(screen.getByText("Student and professor access")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Admin login" })).toHaveAttribute(
-      "href",
-      "/admin/login",
-    );
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByText(/Portal System/)).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Login" })).toBeInTheDocument();
   });
 
   it("renders the demo experience at /demo", () => {
@@ -44,7 +40,7 @@ describe("AppRouter", () => {
       </AppProviders>,
     );
 
-    expect(screen.getByText("Student and professor access")).toBeInTheDocument();
+    expect(screen.getByText(/Portal System/)).toBeInTheDocument();
   });
 
   it("redirects unauthenticated admin requests to login", () => {
@@ -55,6 +51,6 @@ describe("AppRouter", () => {
       </AppProviders>,
     );
 
-    expect(screen.getByText("CRSP Administration")).toBeInTheDocument();
+    expect(screen.getByText(/Portal System/)).toBeInTheDocument();
   });
 });

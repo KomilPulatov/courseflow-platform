@@ -318,7 +318,7 @@ def seed_demo_data() -> None:
         seed_official_curricula(db)
         admin = get_or_create_user(
             db,
-            email="admin@crsp.example.com",
+            email="admin@crsp.local",
             password="admin12345",
             role="admin",
         )

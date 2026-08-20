@@ -55,7 +55,12 @@ app = FastAPI(
 app.add_middleware(MetricsMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -86,6 +91,25 @@ for candidate_dir in (
         frontend_dir = candidate_dir
         break
 
+login_dir: Path | None = None
+for candidate_dir in (
+    Path(__file__).resolve().parents[2] / "frontend" / "login",
+    Path(__file__).resolve().parents[1] / "frontend" / "login",
+):
+    if (candidate_dir / "index.html").exists():
+        login_dir = candidate_dir
+        break
+
+if login_dir is not None:
+    login_assets_dir = login_dir / "assets"
+    if login_assets_dir.exists():
+        app.mount("/login/assets", StaticFiles(directory=login_assets_dir), name="login-assets")
+
+    @app.get("/login", include_in_schema=False)
+    @app.get("/login/{full_path:path}", include_in_schema=False)
+    def login_spa(full_path: str = "") -> FileResponse:
+        return FileResponse(login_dir / "index.html")
+
 if frontend_dir is not None:
     assets_dir = frontend_dir / "assets"
     if assets_dir.exists():
@@ -96,6 +120,10 @@ if frontend_dir is not None:
 
     @app.get("/demo", include_in_schema=False)
     @app.get("/demo/{full_path:path}", include_in_schema=False)
+    @app.get("/student", include_in_schema=False)
+    @app.get("/student/{full_path:path}", include_in_schema=False)
+    @app.get("/dashboard", include_in_schema=False)
+    @app.get("/dashboard/{full_path:path}", include_in_schema=False)
     @app.get("/admin", include_in_schema=False)
     @app.get("/admin/{full_path:path}", include_in_schema=False)
     @app.get("/app", include_in_schema=False)
@@ -104,6 +132,12 @@ if frontend_dir is not None:
     @app.get("/professor/{full_path:path}", include_in_schema=False)
     def react_spa(full_path: str = "") -> FileResponse:
         return FileResponse(frontend_dir / "index.html")
+
+    if login_dir is None:
+        @app.get("/login", include_in_schema=False)
+        @app.get("/login/{full_path:path}", include_in_schema=False)
+        def react_login_spa(full_path: str = "") -> FileResponse:
+            return FileResponse(frontend_dir / "index.html")
 
 
 @app.get("/health", tags=["Health"])

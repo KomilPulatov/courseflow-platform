@@ -10,7 +10,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { register, handleSubmit } = useForm<LoginValues>({
-    defaultValues: { email: "admin@crsp.example.com", password: "admin12345" },
+    defaultValues: { email: "admin@crsp.local", password: "admin12345" },
   });
   const mutation = useMutation({
     mutationFn: adminApi.login,
@@ -37,7 +37,7 @@ export function LoginPage() {
         <form className="login-form" onSubmit={handleSubmit((values) => mutation.mutate(values))}>
           <label>
             Email
-            <input type="email" {...register("email", { required: true })} />
+            <input type="text" {...register("email", { required: true })} />
           </label>
           <label>
             Password
